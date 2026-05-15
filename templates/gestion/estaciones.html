@@ -1,83 +1,124 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">🪑 Gestión de Estaciones</h1>
-    <a href="{% url 'crear_estacion' %}" class="btn btn-primary">+ Nueva Estación</a>
-</div>
+<div class="container-fluid py-4">
+    <div class="row align-items-center mb-4">
+        <div class="col-md-6">
+            <h1 class="h3 mb-0 text-gray-800">🪑 Estaciones de Trabajo</h1>
+            <p class="text-muted small">Configurá los espacios físicos disponibles en el salón.</p>
+        </div>
+        <div class="col-md-6 text-md-end">
+            <a href="{% url 'crear_estacion' %}" class="btn btn-primary shadow-sm">
+                <i class="bi bi-plus-lg"></i> Nueva Estación
+            </a>
+        </div>
+    </div>
 
+    <!-- Buscador -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <form method="GET" action="{% url 'lista_estaciones' %}" class="row g-3">
+                <div class="col-md-10">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0 text-muted">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" name="q" class="form-control border-start-0" 
+                               placeholder="Buscar por nombre o tipo de estación..." 
+                               value="{{ query }}">
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-dark w-100">Buscar</button>
+                </div>
+            </form>
+        </div>
+    </div>
 
-
-<div class="card shadow-sm">
-    <div class="card-body p-0">
-        <table class="table table-striped table-hover mb-0">
-            <thead class="table-dark">
-                <tr>
-                    <th>Nombre</th>
-                    <th>Tipo</th>
-                    <th>Estado</th>
-                    <th class="text-end">Acciones</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for e in estaciones %}
-                <tr>
-                    <td class="fw-bold">{{ e.nombre }}</td>
-                    <td>
-                        {% if e.tipo == 'estacion' %}
-                            <span class="badge bg-info text-dark">Estación de Trabajo</span>
-                        {% else %}
-                            <span class="badge bg-warning text-dark">Lava-Cabezas</span>
-                        {% endif %}
-                    </td>
-                    <td>
+    <!-- Grilla de Estaciones -->
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+        {% for e in estaciones %}
+        <div class="col">
+            <div class="card h-100 shadow-sm border-0">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <div class="rounded-3 p-3 {% if e.activa %}bg-success-soft text-success{% else %}bg-secondary-soft text-secondary{% endif %}">
+                            <i class="bi {% if e.tipo == 'peluqueria' %}bi-scissors{% elif e.tipo == 'manicuria' %}bi-hand-index-thumb{% else %}bi-brush{% endif %} fs-4"></i>
+                        </div>
+                        <div class="dropdown">
+                            <button class="btn btn-link text-muted p-0" type="button" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots-vertical"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end shadow border-0">
+                                <li><a class="dropdown-item" href="{% url 'editar_estacion' e.pk %}"><i class="bi bi-pencil me-2"></i> Editar</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li>
+                                    <button class="dropdown-item text-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ e.pk }}">
+                                        <i class="bi bi-trash me-2"></i> Eliminar
+                                    </button>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <h5 class="card-title fw-bold mb-1">{{ e.nombre }}</h5>
+                    <p class="text-muted small text-uppercase mb-3">{{ e.get_tipo_display }}</p>
+                    
+                    <div class="d-flex align-items-center">
                         {% if e.activa %}
-                            <span class="badge bg-success">Activa</span>
+                        <span class="badge bg-success-soft text-success border border-success extra-small">Operativa</span>
                         {% else %}
-                            <span class="badge bg-secondary">Inactiva</span>
+                        <span class="badge bg-secondary-soft text-secondary border border-secondary extra-small">Fuera de Servicio</span>
                         {% endif %}
-                    </td>
-                    <td class="text-end">
-                        <a href="{% url 'editar_estacion' e.id %}" class="btn btn-sm btn-outline-primary">
+                    </div>
+                </div>
+                <div class="card-footer bg-transparent border-top-0 p-3">
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'editar_estacion' e.pk %}" class="btn btn-outline-primary btn-sm flex-fill d-inline-flex align-items-center justify-content-center gap-1">
                             <i class="bi bi-pencil"></i> Editar
                         </a>
-                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ e.id }}">
-                            <i class="bi bi-trash"></i> Eliminar
+                        <button type="button" class="btn btn-outline-danger btn-sm flex-fill d-inline-flex align-items-center justify-content-center gap-1"
+                                data-bs-toggle="modal" data-bs-target="#deleteModal{{ e.pk }}">
+                            <i class="bi bi-trash"></i> Borrar
                         </button>
-                    </td>
-                </tr>
+                    </div>
+                </div>
+            </div>
 
-                <!-- Modal Confirmación Eliminar -->
-                <div class="modal fade" id="deleteModal{{ e.id }}" tabindex="-1" aria-hidden="true">
-                    <div class="modal-dialog">
-                        <div class="modal-content">
-                            <div class="modal-header bg-danger text-white">
-                                <h5 class="modal-title">Confirmar Eliminación</h5>
-                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                ¿Estás seguro que querés eliminar la estación <strong>{{ e.nombre }}</strong>?<br><br>
-                                <div class="alert alert-warning">
-                                    <i class="bi bi-exclamation-triangle"></i> <strong>Atención:</strong> Si esta estación tiene turnos asociados en el pasado, la base de datos podría impedir la eliminación directa. En ese caso, es mejor marcarla como "Inactiva".
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <form action="{% url 'eliminar_estacion' e.id %}" method="POST">
-                                    {% csrf_token %}
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                    <button type="submit" class="btn btn-danger">Confirmar Eliminación</button>
-                                </form>
-                            </div>
+            <!-- Modal de Borrado -->
+            <div class="modal fade" id="deleteModal{{ e.pk }}" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog modal-dialog-centered">
+                    <div class="modal-content border-0 shadow">
+                        <div class="modal-header bg-danger text-white">
+                            <h5 class="modal-title">Confirmar Borrado</h5>
+                            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                        </div>
+                        <div class="modal-body text-start text-dark">
+                            <p>¿Estás seguro que querés eliminar la estación <strong>{{ e.nombre }}</strong>?</p>
+                            <p class="small text-muted">Esto podría afectar a los turnos que tengan asignada esta estación.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                            <form method="POST" action="{% url 'eliminar_estacion' e.pk %}" class="d-inline">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-danger">Confirmar Borrado</button>
+                            </form>
                         </div>
                     </div>
                 </div>
-                {% empty %}
-                <tr>
-                    <td colspan="4" class="text-center py-4 text-muted">No hay estaciones configuradas.</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center py-5 text-muted">
+            No se encontraron estaciones que coincidan con la búsqueda.
+        </div>
+        {% endfor %}
     </div>
 </div>
+
+<style>
+    .bg-success-soft { background-color: rgba(25, 135, 84, 0.1); }
+    .bg-secondary-soft { background-color: rgba(108, 117, 125, 0.1); }
+    .extra-small { font-size: 0.75rem; }
+</style>
 {% endblock %}

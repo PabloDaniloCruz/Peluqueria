@@ -192,7 +192,9 @@
             reservar: "{% url 'reservar_interno' %}",
         },
         csrfToken: "{{ csrf_token }}",
+        preLoad: JSON.parse('{{ pre_load_json|default:"null"|safe }}'),
     };
+
 </script>
 <script src="{% static 'gestion/js/wizard_reserva.js' %}"></script>
 {% endcompress %}

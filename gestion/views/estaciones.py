@@ -18,10 +18,24 @@ def es_admin(user):
     return user.is_superuser
 
 @login_required
+@login_required
 @user_passes_test(es_admin)
 def lista_estaciones(request):
-    estaciones = Estacion.objects.all()
-    return render(request, 'gestion/estaciones.html', {'estaciones': estaciones})
+    query = request.GET.get('q', '')
+    estaciones = Estacion.objects.all().order_by('nombre')
+    
+    if query:
+        from django.db.models import Q
+        estaciones = estaciones.filter(
+            Q(nombre__icontains=query) |
+            Q(tipo__icontains=query)
+        )
+        
+    return render(request, 'gestion/estaciones.html', {
+        'estaciones': estaciones,
+        'query': query
+    })
+
 
 @login_required
 @user_passes_test(es_admin)

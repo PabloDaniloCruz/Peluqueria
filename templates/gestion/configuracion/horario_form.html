@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">{{ titulo }}</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Día de la Semana</label>
+                            {{ form.dia_semana }}
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col">
+                                <label class="form-label">Apertura</label>
+                                {{ form.hora_apertura }}
+                            </div>
+                            <div class="col">
+                                <label class="form-label">Cierre</label>
+                                {{ form.hora_cierre }}
+                            </div>
+                        </div>
+                        <div class="mb-3 form-check">
+                            {{ form.abierto }}
+                            <label class="form-check-label">Abierto</label>
+                        </div>
+                        <hr>
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'panel_configuracion' %}" class="btn btn-outline-secondary">Cancelar</a>
+                            <button type="submit" class="btn btn-warning">Guardar Horario</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            {% if form.instance.pk %}
+            <div class="mt-4 text-center">
+                <a href="{% url 'eliminar_horario' form.instance.pk %}" 
+                   class="text-danger small" 
+                   onclick="return confirm('¿Seguro que querés eliminar este rango horario?')">
+                   Eliminar este horario
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

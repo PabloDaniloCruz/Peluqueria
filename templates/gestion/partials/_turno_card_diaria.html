@@ -15,7 +15,9 @@
                     {% if turno.estado == 'pendiente' %}bg-primary
                     {% elif turno.estado == 'en_curso' %}bg-warning text-dark
                     {% elif turno.estado == 'completado' %}bg-success
+                    {% elif turno.estado == 'por_reprogramar' %}bg-info
                     {% else %}bg-secondary{% endif %}">
+
                     {{ turno.get_estado_display }}
                 </span>
                 {% if turno.reserva %}
@@ -44,6 +46,9 @@
             {% if turno.estado == 'pendiente' %}
                 <a href="{% url 'iniciar_turno' turno.id %}" class="btn btn-primary btn-sm">▶️ Iniciar</a>
             {% endif %}
+            {% if turno.estado == 'por_reprogramar' %}
+                <a href="{% url 'reprogramar_turno' turno.id %}" class="btn btn-info btn-sm fw-bold">🔄 Reprogramar</a>
+            {% endif %}
             {% if turno.estado == 'en_curso' or turno.estado == 'completado' %}
                 <a href="{% url 'nueva_ficha_turno' turno.id %}" class="btn btn-warning btn-sm text-dark">📝 Ficha</a>
             {% endif %}
@@ -52,6 +57,7 @@
                 <button type="button" class="btn btn-outline-danger btn-sm"
                         data-bs-toggle="modal" data-bs-target="#cancelModal{{ turno.id }}">✖️</button>
             {% endif %}
+
         </div>
     </div>
     <div class="card-footer bg-transparent border-0 text-muted small">

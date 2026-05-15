@@ -12,8 +12,22 @@ def es_admin(user):
 
 @user_passes_test(es_admin)
 def lista_productos(request):
-    productos = Producto.objects.filter(activo=True)
-    return render(request, 'gestion/productos.html', {'productos': productos})
+    query = request.GET.get('q', '')
+    productos = Producto.objects.filter(activo=True).order_by('nombre')
+    
+    if query:
+        from django.db.models import Q
+        productos = productos.filter(
+            Q(nombre__icontains=query) |
+            Q(descripcion__icontains=query) |
+            Q(marca__icontains=query)
+        )
+        
+    return render(request, 'gestion/productos.html', {
+        'productos': productos,
+        'query': query
+    })
+
 
 
 @user_passes_test(es_admin)

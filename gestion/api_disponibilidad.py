@@ -11,7 +11,7 @@ las verificaciones de colisión en O(1) por comparación.
 from datetime import datetime, timedelta
 from django.utils import timezone
 from .models import (
-    Servicio, Profesional, Turno, Estacion, HorarioAtencion, HabilidadProfesional
+    Servicio, Profesional, Turno, Estacion, HorarioAtencion, HabilidadProfesional, CierreExcepcional
 )
 
 SLOT_MINUTES = 5
@@ -102,17 +102,44 @@ def calcular_disponibilidad(fecha, cliente_id, servicios_request, incluir_altern
 
     # --- Pre-fetch ---
     dia_semana = fecha.weekday()
-    horario = HorarioAtencion.objects.filter(dia_semana=dia_semana, abierto=True).first()
-    if not horario:
+    horarios = list(HorarioAtencion.objects.filter(dia_semana=dia_semana, abierto=True))
+    
+    if not horarios:
         return {"opciones": [], "alternativas": [],
                 "error": "El local está cerrado este día."}
 
-    hora_apertura = horario.hora_apertura
-    hora_cierre = horario.hora_cierre
+    # Determinamos el rango total del día para la máscara
+    hora_apertura = min(h.hora_apertura for h in horarios)
+    hora_cierre = max(h.hora_cierre for h in horarios)
     total_slots = _time_to_slot(hora_cierre, hora_apertura)
 
     if total_slots <= 0:
         return {"opciones": [], "alternativas": []}
+
+    # Máscara de "Cerrado por Horario" (todo ocupado por defecto)
+    salon_mask = (1 << total_slots) - 1
+    for h in horarios:
+        s_ini = _time_to_slot(h.hora_apertura, hora_apertura)
+        s_fin = _time_to_slot(h.hora_cierre, hora_apertura)
+        range_bits = ((1 << (s_fin - s_ini)) - 1) << s_ini
+        salon_mask &= ~range_bits
+
+    # Máscara de "Cierres Excepcionales"
+    cierres = CierreExcepcional.objects.filter(fecha=fecha)
+    for c in cierres:
+        if c.es_dia_completo:
+            salon_mask = (1 << total_slots) - 1
+            break
+        else:
+            s_ini = max(0, _time_to_slot(c.hora_inicio, hora_apertura))
+            s_fin = min(total_slots, _time_to_slot(c.hora_fin, hora_apertura))
+            if s_fin > s_ini:
+                range_bits = ((1 << (s_fin - s_ini)) - 1) << s_ini
+                salon_mask |= range_bits
+
+    if salon_mask == (1 << total_slots) - 1:
+        return {"opciones": [], "alternativas": [],
+                "error": "El local está cerrado esta fecha."}
 
     # Turnos activos del día
     turnos_dia = list(
@@ -126,11 +153,11 @@ def calcular_disponibilidad(fecha, cliente_id, servicios_request, incluir_altern
                                 lambda t: t.profesional_id)
     est_masks = _build_bitmask(turnos_dia, fecha, hora_apertura, total_slots,
                                lambda t: t.estacion_id)
-    cliente_mask = 0
+    cliente_mask = salon_mask
     if cliente_id:
         cli_masks = _build_bitmask(turnos_dia, fecha, hora_apertura, total_slots,
                                    lambda t: t.cliente_id)
-        cliente_mask = cli_masks.get(int(cliente_id), 0)
+        cliente_mask |= cli_masks.get(int(cliente_id), 0)
 
     # Estaciones activas
     estaciones_ids = list(Estacion.objects.filter(activa=True).values_list("id", flat=True))

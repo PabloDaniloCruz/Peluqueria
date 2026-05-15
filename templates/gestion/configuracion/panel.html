@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+{% load gestion_extras %}
+
+{% block content %}
+
+<div class="container">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="display-6 fw-bold text-warning">⚙️ Configuración del Salón</h1>
+            <p class="text-muted">Gestioná los horarios de atención y cierres especiales.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Columna Horarios -->
+        <div class="col-md-7 mb-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">🕒 Horarios Semanales</h5>
+                    <a href="{% url 'crear_horario' %}" class="btn btn-warning btn-sm">+ Agregar Turno</a>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Día</th>
+                                    <th>Rangos Horarios</th>
+                                    <th class="text-end">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for dia_idx, nombre in dias_semana.items %}
+                                <tr>
+                                    <td class="fw-bold">{{ nombre }}</td>
+                                    <td>
+                                        {% with rangos=horarios_agrupados|dict_get:dia_idx %}
+                                            {% if rangos %}
+                                                {% for h in rangos %}
+                                                    <span class="badge {% if h.abierto %}bg-success{% else %}bg-secondary{% endif %} p-2 mb-1">
+                                                        {{ h.hora_apertura|time:"H:i" }} - {{ h.hora_cierre|time:"H:i" }}
+                                                        <a href="{% url 'editar_horario' h.pk %}" class="text-white ms-2"><i class="bi bi-pencil"></i>✏️</a>
+                                                    </span>
+                                                {% endfor %}
+                                            {% else %}
+                                                <span class="text-danger small">Cerrado todo el día</span>
+                                            {% endif %}
+                                        {% endwith %}
+                                    </td>
+                                    <td class="text-end">
+                                        <a href="{% url 'crear_horario' %}?dia={{ dia_idx }}" class="btn btn-outline-warning btn-sm">Añadir</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Columna Cierres -->
+        <div class="col-md-5 mb-4">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">📅 Cierres Especiales</h5>
+                    <a href="{% url 'crear_cierre' %}" class="btn btn-warning btn-sm">+ Nuevo Cierre</a>
+                </div>
+                <div class="card-body">
+                    {% if cierres %}
+                    <ul class="list-group list-group-flush">
+                        {% for c in cierres %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <div class="fw-bold">{{ c.fecha|date:"D d/m/Y" }}</div>
+                                <small class="text-muted">{{ c.descripcion }}</small>
+                                <br>
+                                {% if c.es_dia_completo %}
+                                    <span class="badge bg-danger">Día Completo</span>
+                                {% else %}
+                                    <span class="badge bg-warning text-dark">{{ c.hora_inicio|time:"H:i" }} - {{ c.hora_fin|time:"H:i" }}</span>
+                                {% endif %}
+                            </div>
+                            <div class="btn-group">
+                                <a href="{% url 'editar_cierre' c.pk %}" class="btn btn-sm btn-outline-secondary">Editar</a>
+                                <a href="{% url 'eliminar_cierre' c.pk %}" class="btn btn-sm btn-outline-danger" onclick="return confirm('¿Eliminar este cierre?')">Borrar</a>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-center text-muted py-4">No hay cierres programados.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

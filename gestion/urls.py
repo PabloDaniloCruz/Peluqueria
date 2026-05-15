@@ -5,8 +5,13 @@ urlpatterns = [
     path('', views.dashboard_recepcion, name='dashboard'),
     path('clientes/', views.lista_clientes, name='lista_clientes'),
     path('clientes/nuevo/', views.crear_cliente, name='crear_cliente'),
-    path('reservar/', views.reservar_turno_publico, name='reservar_publico'),
-    path('reservar/interno/', views.reservar_turno_interno, name='reservar_interno'),
+    path('clientes/<int:pk>/editar/', views.editar_cliente, name='editar_cliente'),
+    path('clientes/<int:pk>/eliminar/', views.eliminar_cliente, name='eliminar_cliente'),
+
+    path('reservas/nueva/', views.reservar_turno_interno, name='reservar_interno'),
+    path('reservas/reprogramar/<int:pk>/', views.reprogramar_turno, name='reprogramar_turno'),
+    path('reservas/publica/', views.reservar_turno_publico, name='reservar_publico'),
+
     path('turno/<int:turno_id>/cancelar/', views.cancelar_turno, name='cancelar_turno'),
     path('turno/<int:turno_id>/iniciar/', views.iniciar_turno, name='iniciar_turno'),
     path('turno/<int:turno_id>/facturar/', views.facturar_turno, name='facturar_turno'),
@@ -45,4 +50,13 @@ urlpatterns = [
     path('estaciones/nueva/', views.gestionar_estacion, name='crear_estacion'),
     path('estaciones/<int:pk>/editar/', views.gestionar_estacion, name='editar_estacion'),
     path('estaciones/<int:pk>/eliminar/', views.eliminar_estacion, name='eliminar_estacion'),
-]
+
+    # --- Configuración del Salón (Admin) ---
+    path('configuracion/', views.panel_configuracion, name='panel_configuracion'),
+    path('configuracion/horarios/nuevo/', views.gestionar_horario, name='crear_horario'),
+    path('configuracion/horarios/<int:pk>/editar/', views.gestionar_horario, name='editar_horario'),
+    path('configuracion/horarios/<int:pk>/eliminar/', views.eliminar_horario, name='eliminar_horario'),
+    path('configuracion/cierres/nuevo/', views.gestionar_cierre, name='crear_cierre'),
+    path('configuracion/cierres/<int:pk>/editar/', views.gestionar_cierre, name='editar_cierre'),
+    path('configuracion/cierres/<int:pk>/eliminar/', views.eliminar_cierre, name='eliminar_cierre'),
+]

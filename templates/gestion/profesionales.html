@@ -1,66 +1,136 @@
 {% extends 'base.html' %}
 
 {% block content %}
-<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-    <h1 class="h2">✂️ Gestión de Profesionales</h1>
-    <a href="{% url 'crear_profesional' %}" class="btn btn-primary">+ Nuevo Profesional</a>
-</div>
+<div class="container-fluid py-4">
+    <div class="row align-items-center mb-4">
+        <div class="col-md-6">
+            <h1 class="h3 mb-0 text-gray-800">✂️ Equipo de Profesionales</h1>
+            <p class="text-muted small">Gestioná el personal y sus habilidades.</p>
+        </div>
+        <div class="col-md-6 text-md-end">
+            <a href="{% url 'crear_profesional' %}" class="btn btn-primary shadow-sm">
+                <i class="bi bi-person-plus"></i> Nuevo Profesional
+            </a>
+        </div>
+    </div>
 
-
-
-<table class="table table-striped table-hover shadow-sm bg-white">
-    <thead class="table-dark">
-        <tr>
-            <th>Nombre y Apellido</th>
-            <th>Teléfono</th>
-            <th>Comisión</th>
-            <th>Servicios Habilitados</th>
-            <th>Acciones</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for p in profesionales %}
-        <tr>
-            <td class="fw-bold">{{ p.nombre }} {{ p.apellido }}</td>
-            <td>{{ p.telefono|default:"-" }}</td>
-            <td><span class="badge bg-secondary">{{ p.porcentaje_comision }}%</span></td>
-            <td>
-                {% for h in p.habilidades.all %}
-                    <span class="badge bg-light text-dark border">{{ h.nombre }}</span>
-                {% empty %}
-                    <span class="text-muted small">Ninguno</span>
-                {% endfor %}
-            </td>
-            <td>
-                <a href="{% url 'editar_profesional' p.id %}" class="btn btn-sm btn-outline-primary">Editar</a>
-                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ p.id }}">Baja</button>
-            </td>
-        </tr>
-
-        <!-- Modal Confirmación Baja -->
-        <div class="modal fade" id="deleteModal{{ p.id }}" tabindex="-1" aria-hidden="true">
-            <div class="modal-dialog">
-                <div class="modal-content">
-                    <div class="modal-header bg-danger text-white">
-                        <h5 class="modal-title">Confirmar Baja</h5>
-                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                    </div>
-                    <div class="modal-body">
-                        ¿Estás seguro que querés dar de baja a <strong>{{ p.nombre }} {{ p.apellido }}</strong>?<br><br>
-                        <em>Nota: Esto no borrará su historial de turnos pasados, pero ya no aparecerá para nuevas reservas.</em>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <a href="{% url 'eliminar_profesional' p.id %}" class="btn btn-danger">Dar de Baja</a>
+    <!-- Buscador -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <form method="GET" action="{% url 'lista_profesionales' %}" class="row g-3">
+                <div class="col-md-10">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white border-end-0 text-muted">
+                            <i class="bi bi-search"></i>
+                        </span>
+                        <input type="text" name="q" class="form-control border-start-0" 
+                               placeholder="Buscar por nombre, especialidad o contacto..." 
+                               value="{{ query }}">
                     </div>
                 </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-dark w-100">Buscar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="card shadow-sm border-0">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light text-muted small text-uppercase">
+                        <tr>
+                            <th class="ps-4">Profesional</th>
+                            <th>Contacto / Usuario</th>
+                            <th>Habilidades</th>
+                            <th class="text-end pe-4">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in profesionales %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-circle me-3 bg-info-soft text-info">
+                                        {{ p.nombre|first }}{{ p.apellido|first }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold text-dark">{{ p.nombre }} {{ p.apellido }}</div>
+                                        <span class="text-muted extra-small">ID: #{{ p.id }}</span>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                <div class="small"><i class="bi bi-telephone text-muted me-1"></i> {{ p.telefono }}</div>
+                                {% if p.usuario %}
+                                <div class="small text-muted"><i class="bi bi-shield-lock text-muted me-1"></i> User: {{ p.usuario.username }}</div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for hab in p.habilidades.all|slice:":3" %}
+                                        <span class="badge bg-light text-dark border">{{ hab.nombre }}</span>
+                                    {% endfor %}
+                                    {% if p.habilidades.count > 3 %}
+                                        <span class="badge bg-light text-muted border">+{{ p.habilidades.count|add:"-3" }}</span>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="d-flex justify-content-end gap-2">
+                                    <a href="{% url 'editar_profesional' p.id %}" class="btn btn-outline-primary btn-sm d-inline-flex align-items-center gap-1">
+                                        <i class="bi bi-pencil"></i> <span>Editar</span>
+                                    </a>
+                                    <button type="button" class="btn btn-outline-danger btn-sm d-inline-flex align-items-center gap-1" 
+                                            data-bs-toggle="modal" data-bs-target="#deleteModal{{ p.id }}">
+                                        <i class="bi bi-trash"></i> <span>Baja</span>
+                                    </button>
+                                </div>
+
+                                <!-- Modal de Baja -->
+                                <div class="modal fade" id="deleteModal{{ p.id }}" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content border-0 shadow">
+                                            <div class="modal-header bg-danger text-white">
+                                                <h5 class="modal-title">Confirmar Baja</h5>
+                                                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body text-start text-dark">
+                                                <p>¿Estás seguro que querés dar de baja a <strong>{{ p.nombre }} {{ p.apellido }}</strong>?</p>
+                                                <p class="small text-muted">El profesional dejará de aparecer en la lista de disponibles para nuevos turnos.</p>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                                                <a href="{% url 'eliminar_profesional' p.id %}" class="btn btn-danger">Confirmar Baja</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-muted">
+                                No se encontraron profesionales.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
-        {% empty %}
-        <tr>
-            <td colspan="5" class="text-center py-4 text-muted">No hay profesionales activos.</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+    </div>
+</div>
+
+<style>
+    .bg-info-soft { background-color: rgba(13, 202, 240, 0.1); }
+    .avatar-circle {
+        width: 40px; height: 40px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        font-weight: bold; font-size: 0.9rem;
+    }
+    .extra-small { font-size: 0.75rem; }
+</style>
 {% endblock %}

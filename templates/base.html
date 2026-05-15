@@ -52,7 +52,11 @@
                     <li class="nav-item">
                         <a class="nav-link text-white" href="{% url 'lista_estaciones' %}">🪑 Estaciones</a>
                     </li>
+                    <li class="nav-item">
+                        <a class="nav-link text-white" href="{% url 'panel_configuracion' %}">⚙️ Configuración</a>
+                    </li>
                     {% endif %}
+
                     <li class="nav-item mt-4">
                         <form action="{% url 'logout' %}" method="post">
                             {% csrf_token %}

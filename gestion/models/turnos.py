@@ -70,7 +70,9 @@ class Turno(models.Model):
         ("en_curso", "En Curso"),
         ("completado", "Completado"),
         ("cancelado", "Cancelado"),
+        ("por_reprogramar", "Por Reprogramar"),
     ]
+
 
     cliente = models.ForeignKey(
         "Cliente", on_delete=models.CASCADE,

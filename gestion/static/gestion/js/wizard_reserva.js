@@ -339,7 +339,8 @@ document.addEventListener('DOMContentLoaded', function () {
             nombre: document.getElementById('inp_nombre').value,
             apellido: document.getElementById('inp_apellido').value,
             telefono: document.getElementById('inp_telefono').value,
-            opcion: opcionElegida
+            opcion: opcionElegida,
+            repro_id: CONFIG.preLoad ? CONFIG.preLoad.repro_id : null
         };
 
         fetch(CONFIG.urls.reservar, {
@@ -433,6 +434,30 @@ document.addEventListener('DOMContentLoaded', function () {
     // --- Init ---
     initTimePicker();
     renderServicios();
+
+    // Nueva lógica de pre-carga (Reprogramación)
+    if (CONFIG.preLoad) {
+        const p = CONFIG.preLoad;
+        // 1. Cargar cliente
+        seleccionarCliente({
+            id: p.cliente_id,
+            nombre: p.nombre,
+            apellido: p.apellido,
+            telefono: p.telefono
+        });
+        
+        // 2. Seleccionar servicios
+        p.servicios_ids.forEach(sid => toggleServicio(sid));
+        
+        // 3. Mostrar banner de información
+        if (p.msg) {
+            const banner = document.createElement('div');
+            banner.className = 'alert alert-info py-2 mb-3 fw-bold';
+            banner.innerHTML = `<i class="bi bi-info-circle"></i> ${p.msg}`;
+            const indicator = document.getElementById('step-indicator');
+            if (indicator) indicator.after(banner);
+        }
+    }
 
     const fechaInput = document.getElementById('inp_fecha');
     if (fechaInput) {

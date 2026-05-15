@@ -13,8 +13,23 @@ def es_admin(user):
 
 @user_passes_test(es_admin)
 def lista_profesionales(request):
-    profesionales = Profesional.objects.filter(activo=True)
-    return render(request, 'gestion/profesionales.html', {'profesionales': profesionales})
+    query = request.GET.get('q', '')
+    profesionales = Profesional.objects.filter(activo=True).order_by('apellido', 'nombre')
+    
+    if query:
+        from django.db.models import Q
+        profesionales = profesionales.filter(
+            Q(nombre__icontains=query) |
+            Q(apellido__icontains=query) |
+            Q(telefono__icontains=query) |
+            Q(email__icontains=query)
+        )
+        
+    return render(request, 'gestion/profesionales.html', {
+        'profesionales': profesionales,
+        'query': query
+    })
+
 
 
 @user_passes_test(es_admin)

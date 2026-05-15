@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-7">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">{{ titulo }}</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="cierre-form">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Fecha del Cierre</label>
+                            {{ form.fecha }}
+                            {% if form.fecha.errors %}<div class="text-danger small">{{ form.fecha.errors }}</div>{% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Motivo (se usará en el mensaje de WhatsApp)</label>
+                            {{ form.descripcion }}
+                        </div>
+                        <div class="mb-3 form-check">
+                            {{ form.es_dia_completo }}
+                            <label class="form-check-label">Cerrar todo el día</label>
+                        </div>
+                        <div id="rango_horas" class="row mb-3" style="{% if form.es_dia_completo.value %}display: none;{% endif %}">
+                            <div class="col">
+                                <label class="form-label">Desde</label>
+                                {{ form.hora_inicio }}
+                            </div>
+                            <div class="col">
+                                <label class="form-label">Hasta</label>
+                                {{ form.hora_fin }}
+                            </div>
+                        </div>
+
+                        {% if conflictos_detectados %}
+                            <div class="alert alert-warning border-warning shadow-sm">
+                                <h6 class="alert-heading fw-bold"><i class="bi bi-exclamation-triangle"></i> ¡ATENCIÓN! Turnos en conflicto</h6>
+                                <p class="small mb-2">Hay <strong>{{ afectados|length }}</strong> turnos que se verán afectados. Avisales por WhatsApp antes de forzar el cierre.</p>
+                                
+                                <div class="table-responsive bg-white rounded p-2 mb-3" style="max-height: 250px; overflow-y: auto;">
+                                    <table class="table table-sm table-hover align-middle mb-0">
+                                        <thead class="table-light small">
+                                            <tr>
+                                                <th>Cliente</th>
+                                                <th>Hora</th>
+                                                <th class="text-end">Acción</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="small">
+                                            {% for t in afectados %}
+                                            <tr>
+                                                <td>{{ t.cliente.nombre }} {{ t.cliente.apellido }}</td>
+                                                <td>{{ t.fecha_hora|time:"H:i" }}</td>
+                                                <td class="text-end">
+                                                    <a href="{{ t.wa_link }}" target="_blank" class="btn btn-success btn-sm py-0">
+                                                        WhatsApp
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <input type="hidden" name="confirmar_forzado" value="true">
+                                <button type="submit" class="btn btn-danger w-100 fw-bold">FORZAR CIERRE Y REPROGRAMAR</button>
+                            </div>
+                        {% else %}
+                            <hr>
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'panel_configuracion' %}" class="btn btn-outline-secondary">Cancelar</a>
+                                <button type="submit" class="btn btn-warning px-4">Guardar Cierre</button>
+                            </div>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const checkDiaCompleto = document.querySelector('input[name="es_dia_completo"]');
+        const divRango = document.getElementById('rango_horas');
+        
+        function toggleRango() {
+            if (checkDiaCompleto.checked) {
+                divRango.style.display = 'none';
+            } else {
+                divRango.style.display = 'flex';
+            }
+        }
+        
+        checkDiaCompleto.addEventListener('change', toggleRango);
+    });
+</script>
+{% endblock %}

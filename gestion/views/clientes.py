@@ -24,11 +24,51 @@ def crear_cliente(request):
 
 @login_required
 def lista_clientes(request):
-    clientes_bd = Cliente.objects.all()
+    query = request.GET.get('q', '')
+    clientes_bd = Cliente.objects.all().order_by('apellido', 'nombre')
+    
+    if query:
+        clientes_bd = clientes_bd.filter(
+            Q(nombre__icontains=query) |
+            Q(apellido__icontains=query) |
+            Q(telefono__icontains=query) |
+            Q(email__icontains=query)
+        )
+    
     contexto = {
-        'clientes': clientes_bd
+        'clientes': clientes_bd,
+        'query': query
     }
     return render(request, 'gestion/clientes.html', contexto)
+
+
+@login_required
+def editar_cliente(request, pk):
+    cliente = get_object_or_404(Cliente, pk=pk)
+    if request.method == 'POST':
+        form = ClienteForm(request.POST, instance=cliente)
+        if form.is_valid():
+            form.save()
+            messages.success(request, 'Datos del cliente actualizados.')
+            return redirect('lista_clientes')
+    else:
+        form = ClienteForm(instance=cliente)
+    
+    return render(request, 'gestion/nuevo_cliente.html', {
+        'form': form, 
+        'editando': True, 
+        'cliente': cliente
+    })
+
+
+@login_required
+def eliminar_cliente(request, pk):
+    cliente = get_object_or_404(Cliente, pk=pk)
+    # Podríamos verificar si tiene turnos antes de borrar, o simplemente borrar en cascada
+    cliente.delete()
+    messages.success(request, 'Cliente eliminado del sistema.')
+    return redirect('lista_clientes')
+
 
 
 @login_required

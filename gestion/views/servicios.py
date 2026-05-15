@@ -15,8 +15,21 @@ def es_admin(user):
 
 @user_passes_test(es_admin)
 def lista_servicios(request):
-    servicios = Servicio.objects.filter(activo=True)
-    return render(request, 'gestion/servicios.html', {'servicios': servicios})
+    query = request.GET.get('q', '')
+    servicios = Servicio.objects.filter(activo=True).order_by('orden_sugerido', 'nombre')
+    
+    if query:
+        from django.db.models import Q
+        servicios = servicios.filter(
+            Q(nombre__icontains=query) |
+            Q(descripcion__icontains=query)
+        )
+        
+    return render(request, 'gestion/servicios.html', {
+        'servicios': servicios,
+        'query': query
+    })
+
 
 
 @user_passes_test(es_admin)

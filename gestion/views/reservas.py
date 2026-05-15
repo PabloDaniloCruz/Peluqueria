@@ -144,7 +144,17 @@ def reservar_turno_interno(request):
         # Crear Reserva + Turnos dentro de una transacción atómica
         try:
             with transaction.atomic():
+                # Si estamos reprogramando, cancelamos el turno viejo para liberar espacio
+                repro_id = data.get('repro_id')
+                if repro_id:
+                    old_turno = Turno.objects.filter(id=repro_id).first()
+                    if old_turno:
+                        old_turno.estado = 'cancelado'
+                        old_turno.observaciones += f"\n[Cancelado por reprogramación el {timezone.now().strftime('%d/%m %H:%M')}]"
+                        old_turno.save()
+
                 reserva = Reserva.objects.create(cliente=cliente)
+
                 turnos_creados = 0
 
                 for idx, bloque in enumerate(opcion['bloques']):
@@ -213,6 +223,52 @@ def reservar_turno_interno(request):
         'fecha_hoy': timezone.now().date().isoformat(),
     }
     return render(request, 'gestion/reserva_interna.html', contexto)
+
+
+@login_required
+def reprogramar_turno(request, pk):
+    """
+    Pre-carga el wizard de reserva interna con los datos de un turno 
+    que necesita ser movido (ej. por un cierre excepcional).
+    """
+    turno = get_object_or_404(Turno, id=pk)
+    
+    # Datos básicos del cliente
+    pre_load = {
+        'cliente_id': turno.cliente.id,
+        'nombre': turno.cliente.nombre,
+        'apellido': turno.cliente.apellido,
+        'telefono': turno.cliente.telefono,
+        'servicios_ids': list(turno.servicios.values_list('id', flat=True)),
+        'repro_id': turno.id,
+        'msg': f"Reprogramando Turno #{turno.id} de {turno.cliente}"
+    }
+
+    # Reutilizamos la lógica de cargar servicios y profesionales
+    servicios = list(Servicio.objects.filter(activo=True).values(
+        'id', 'nombre', 'descripcion', 'precio_sugerido',
+        'duracion_estimada', 'orden_sugerido'
+    ))
+    profesionales = [
+        {
+            'id': p.id,
+            'nombre': f"{p.nombre} {p.apellido}",
+            'habilidades': list(p.habilidades.values_list('id', flat=True))
+        } for p in Profesional.objects.filter(activo=True)
+    ]
+    horarios = list(HorarioAtencion.objects.filter(abierto=True).values(
+        'dia_semana', 'hora_apertura', 'hora_cierre'
+    ))
+
+    contexto = {
+        'servicios_json': json.dumps(servicios, default=str),
+        'profesionales_json': json.dumps(profesionales),
+        'horarios_json': json.dumps(horarios, default=str),
+        'fecha_hoy': timezone.now().date().isoformat(),
+        'pre_load_json': json.dumps(pre_load),
+    }
+    return render(request, 'gestion/reserva_interna.html', contexto)
+
 
 
 @login_required

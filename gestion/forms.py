@@ -1,6 +1,10 @@
 from django import forms
 from django.contrib.auth.models import User
-from .models import Cliente, Profesional, Servicio, FichaTecnica, Producto, Venta
+from .models import (
+    Cliente, Profesional, Servicio, FichaTecnica, Producto, Venta, 
+    HorarioAtencion, CierreExcepcional
+)
+
 
 class ReservaAlPasoForm(forms.Form):
     # --- Datos del Cliente ---
@@ -197,3 +201,29 @@ class ProductoForm(forms.ModelForm):
         if es_para_venta and precio is None:
             self.add_error('precio', 'El precio es obligatorio si el producto es para la venta.')
         return cleaned_data
+
+
+class HorarioAtencionForm(forms.ModelForm):
+    class Meta:
+        model = HorarioAtencion
+        fields = ['dia_semana', 'hora_apertura', 'hora_cierre', 'abierto']
+        widgets = {
+            'dia_semana': forms.Select(attrs={'class': 'form-select'}),
+            'hora_apertura': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'hora_cierre': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'abierto': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+        }
+
+
+class CierreExcepcionalForm(forms.ModelForm):
+    class Meta:
+        model = CierreExcepcional
+        fields = ['fecha', 'descripcion', 'es_dia_completo', 'hora_inicio', 'hora_fin']
+        widgets = {
+            'fecha': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'descripcion': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej. Feriado Nacional'}),
+            'es_dia_completo': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
+            'hora_inicio': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'hora_fin': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+        }
+
