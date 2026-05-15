@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Facturar Turno</li>
+                </ol>
+            </nav>
+
+            <div class="card shadow border-0">
+                <div class="card-header bg-success text-white p-4 text-center">
+                    <h3 class="mb-0">Facturar Turno #{{ turno.id }}</h3>
+                    <p class="mb-0 opacity-75">{{ turno.cliente }}</p>
+                </div>
+                <div class="card-body p-4">
+                    <div class="alert alert-warning mb-4">
+                        <h5 class="alert-heading">Resumen del Servicio</h5>
+                        <hr>
+                        <p class="mb-1"><strong>Profesional:</strong> {{ turno.profesional }} (Comisión: {{ turno.profesional.porcentaje_comision }}%)</p>
+                        <p class="mb-1"><strong>Precio Sugerido:</strong> <span class="fs-4 fw-bold text-dark">${{ total_sugerido }}</span></p>
+                    </div>
+
+                    <form method="post" id="form-facturar">
+                        {% csrf_token %}
+                        
+                        <!-- Sección: Productos para Venta -->
+                        <div class="mb-4 border p-3 rounded bg-light">
+                            <h5 class="text-primary mb-3"><i class="bi bi-cart-plus"></i> Productos Vendidos</h5>
+                            <table class="table table-sm" id="tabla-productos">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th style="width: 80px;">Cant.</th>
+                                        <th style="width: 100px;">Subtotal</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Filas dinámicas -->
+                                </tbody>
+                            </table>
+                            <button type="button" class="btn btn-sm btn-outline-primary" id="btn-agregar-producto">+ Agregar Producto</button>
+                        </div>
+
+                        <!-- Sección: Insumos Consumidos -->
+                        <div class="mb-4 border p-3 rounded bg-light">
+                            <h5 class="text-secondary mb-3"><i class="bi bi-flask"></i> Insumos Utilizados</h5>
+                            <table class="table table-sm" id="tabla-insumos">
+                                <thead>
+                                    <tr>
+                                        <th>Insumo</th>
+                                        <th style="width: 100px;">Cantidad</th>
+                                        <th></th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <!-- Filas dinámicas -->
+                                </tbody>
+                            </table>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btn-agregar-insumo">+ Registrar Insumo</button>
+                        </div>
+
+                        <hr>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Total Final ($)</label>
+                            {{ form.total }}
+                            <div class="form-text">El total se actualiza automáticamente al sumar productos.</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Método de Pago</label>
+                            {{ form.metodo_pago }}
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success btn-lg">Finalizar y Registrar Venta</button>
+                            <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% load static %}
+
+<!-- Plantillas ocultas para JS -->
+<div id="templates" style="display: none;">
+    <table>
+        {% include 'gestion/partials/_fila_producto.html' with total_input_id=form.total.id_for_label %}
+        {% include 'gestion/partials/_fila_insumo.html' with total_input_id=form.total.id_for_label %}
+    </table>
+</div>
+
+{% load compress %}
+{% compress js %}
+<script src="{% static 'gestion/js/ventas.js' %}"></script>
+<script>
+    const precioBase = parseFloat("{{ total_sugerido }}".replace(',', '.'));
+    const totalInputId = "{{ form.total.id_for_label }}";
+    
+    inicializarVentas({
+        precioBase: precioBase,
+        totalInputId: totalInputId
+    });
+</script>
+{% endcompress %}
+{% endblock %}
+

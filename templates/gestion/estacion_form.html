@@ -1,0 +1,69 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{% if estacion %}✏️ Editar Estación{% else %}➕ Nueva Estación{% endif %}</h1>
+    <a href="{% url 'lista_estaciones' %}" class="btn btn-outline-secondary">Volver al Listado</a>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-dark text-white py-3">
+                <h5 class="card-title mb-0">Datos de la Estación</h5>
+            </div>
+            <div class="card-body p-4">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Nombre de la Estación</label>
+                        {{ form.nombre }}
+                        {% if form.nombre.errors %}
+                            <div class="text-danger small mt-1">{{ form.nombre.errors }}</div>
+                        {% endif %}
+                        <div class="form-text">Ej: Lava-cabezas 1, Estación Peinado 2, etc.</div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Tipo de Recurso</label>
+                        {{ form.tipo }}
+                        {% if form.tipo.errors %}
+                            <div class="text-danger small mt-1">{{ form.tipo.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-4">
+                        <div class="form-check form-switch p-0" style="padding-left: 2.5em !important;">
+                            {{ form.activa }}
+                            <label class="form-check-label fw-bold ms-2" for="{{ form.activa.id_for_label }}">Estación Activa</label>
+                        </div>
+                        <div class="form-text">Si la estación está inactiva, no podrá ser seleccionada para nuevas reservas.</div>
+                    </div>
+
+                    <hr class="my-4">
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{% url 'lista_estaciones' %}" class="btn btn-light me-md-2">Cancelar</a>
+                        <button type="submit" class="btn btn-primary px-5">
+                            {% if estacion %}Guardar Cambios{% else %}Crear Estación{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-5">
+        <div class="alert alert-info border-0 shadow-sm">
+            <h5 class="alert-heading"><i class="bi bi-info-circle-fill"></i> ¿Para qué sirve esto?</h5>
+            <p>Las <strong>estaciones</strong> representan los recursos físicos de tu salón. El sistema las usa para:</p>
+            <ul class="mb-0">
+                <li>Evitar que dos profesionales usen el mismo lava-cabezas al mismo tiempo.</li>
+                <li>Controlar que haya espacio físico disponible para cada servicio.</li>
+                <li>Organizar la agenda continua sin colisiones de recursos.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

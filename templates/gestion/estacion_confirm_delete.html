@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center pt-5">
+    <div class="col-md-6">
+        <div class="card border-danger shadow">
+            <div class="card-header bg-danger text-white">
+                <h5 class="card-title mb-0">Confirmar Eliminación</h5>
+            </div>
+            <div class="card-body py-4 text-center">
+                <p class="lead">¿Estás seguro que querés eliminar permanentemente la estación?</p>
+                <h3 class="mb-4">"{{ estacion.nombre }}"</h3>
+                
+                <div class="alert alert-warning text-start">
+                    <i class="bi bi-exclamation-triangle"></i> <strong>Atención:</strong> Si esta estación tiene turnos asociados en el historial, la base de datos podría impedir la eliminación. Se recomienda marcarla como <strong>Inactiva</strong> desde la edición si querés dejar de usarla.
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="d-grid gap-2 d-md-block mt-4">
+                        <a href="{% url 'lista_estaciones' %}" class="btn btn-secondary px-4 me-2">Cancelar</a>
+                        <button type="submit" class="btn btn-danger px-4">Sí, Eliminar permanentemente</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

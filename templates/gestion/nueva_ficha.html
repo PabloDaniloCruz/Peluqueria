@@ -1,0 +1,46 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-warning text-dark">
+                <h4 class="mb-0">📝 Nueva Ficha Técnica</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info py-2">
+                    <strong>Cliente:</strong> {{ cliente.nombre }} {{ cliente.apellido }} <br>
+                    <strong>Asociado al Turno #{{ turno.id }}</strong> ({{ turno.fecha_hora|date:"d/m/Y H:i" }})
+                </div>
+                
+                <p class="text-muted small">Todos los campos son opcionales. Completá únicamente lo que necesites registrar para esta visita.</p>
+
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.descripcion.id_for_label }}" class="form-label fw-bold">Tratamiento / Descripción</label>
+                        {{ form.descripcion }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.formula_quimica.id_for_label }}" class="form-label fw-bold">Fórmula Química</label>
+                        {{ form.formula_quimica }}
+                        <small class="text-muted d-block mt-1">{{ form.formula_quimica.help_text }}</small>
+                    </div>
+
+                    <div class="mb-4">
+                        <label for="{{ form.observaciones.id_for_label }}" class="form-label fw-bold">Observaciones / Alertas</label>
+                        {{ form.observaciones }}
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">Cancelar</a>
+                        <button type="submit" class="btn btn-success px-5">💾 Guardar Ficha</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

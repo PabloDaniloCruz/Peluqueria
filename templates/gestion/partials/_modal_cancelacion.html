@@ -1,0 +1,23 @@
+<!-- Modal Cancelación -->
+<div class="modal fade" id="cancelModal{{ turno.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Cancelación</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                ¿Cancelar el turno de <strong>{{ turno.cliente }}</strong> a las <strong>{{ turno.fecha_hora|date:"H:i" }}</strong>?
+                {% if turno.reserva %}
+                    <div class="alert alert-warning mt-2 mb-0 py-2 small">
+                        Este turno es parte de la reserva #{{ turno.reserva.id }}. Solo se cancela este bloque.
+                    </div>
+                {% endif %}
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">No, volver</button>
+                <a href="{% url 'cancelar_turno' turno.id %}" class="btn btn-danger">Sí, cancelar</a>
+            </div>
+        </div>
+    </div>
+</div>

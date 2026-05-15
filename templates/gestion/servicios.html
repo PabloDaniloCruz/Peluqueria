@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">💇‍♀️ Gestión de Servicios</h1>
+    <div class="d-flex gap-2">
+        <button id="btn-guardar-orden" class="btn btn-success d-none" onclick="guardarOrden(URL_REORDENAR, CSRF_TOKEN)">
+            💾 Guardar orden
+        </button>
+        <a href="{% url 'crear_servicio' %}" class="btn btn-primary">+ Nuevo Servicio</a>
+    </div>
+</div>
+
+
+
+<div id="alerta-orden" class="alert alert-success alert-dismissible fade d-none" role="alert">
+    <strong>✅ Orden guardado correctamente.</strong>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+
+<div class="text-muted small mb-2">
+    💡 Usá los botones ▲▼ para cambiar el orden en que aparecen los servicios en las reservas. Hacé clic en <strong>Guardar orden</strong> para confirmar.
+</div>
+
+<table class="table table-striped table-hover shadow-sm bg-white">
+    <thead class="table-dark">
+        <tr>
+            <th style="width:90px">Orden</th>
+            <th>Nombre</th>
+            <th>Duración Est.</th>
+            <th>Precio Sugerido</th>
+            <th>Descripción</th>
+            <th>Acciones</th>
+        </tr>
+    </thead>
+    <tbody id="tabla-servicios">
+        {% for s in servicios %}
+        <tr data-id="{{ s.id }}" data-orden="{{ s.orden_sugerido }}">
+            <td class="align-middle">
+                <div class="d-flex align-items-center gap-1">
+                    <span class="badge bg-secondary orden-badge">{{ s.orden_sugerido }}</span>
+                    <div class="d-flex flex-column">
+                        <button class="btn btn-sm btn-outline-secondary py-0 px-1 lh-1" onclick="moverFila(this, -1)" title="Subir">▲</button>
+                        <button class="btn btn-sm btn-outline-secondary py-0 px-1 lh-1 mt-1" onclick="moverFila(this, 1)" title="Bajar">▼</button>
+                    </div>
+                </div>
+            </td>
+            <td class="fw-bold align-middle">{{ s.nombre }}</td>
+            <td class="align-middle">{{ s.duracion_estimada }} min</td>
+            <td class="align-middle"><span class="badge bg-success text-white">${{ s.precio_sugerido }}</span></td>
+            <td class="text-muted small align-middle">{{ s.descripcion|truncatewords:10 }}</td>
+            <td class="align-middle">
+                <a href="{% url 'editar_servicio' s.id %}" class="btn btn-sm btn-outline-primary">Editar</a>
+                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ s.id }}">Baja</button>
+            </td>
+        </tr>
+
+        <!-- Modal Confirmación Baja -->
+        <div class="modal fade" id="deleteModal{{ s.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header bg-danger text-white">
+                        <h5 class="modal-title">Confirmar Baja</h5>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        ¿Estás seguro que querés dar de baja el servicio <strong>{{ s.nombre }}</strong>?<br><br>
+                        <em>Nota: Dejará de aparecer en las listas de reserva, pero los turnos históricos se mantienen.</em>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <a href="{% url 'eliminar_servicio' s.id %}" class="btn btn-danger">Dar de Baja</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <tr>
+            <td colspan="6" class="text-center py-4 text-muted">No hay servicios activos.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% load compress %}
+{% compress js %}
+<script src="{% static 'gestion/js/servicios.js' %}"></script>
+<script>
+    const URL_REORDENAR = "{% url 'reordenar_servicios' %}";
+    const CSRF_TOKEN = "{{ csrf_token }}";
+    
+    // El botón 'btn-guardar-orden' llama a guardarOrden(URL_REORDENAR, CSRF_TOKEN)
+</script>
+{% endcompress %}
+
+{% endblock %}

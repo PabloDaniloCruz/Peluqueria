@@ -1,0 +1,120 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ titulo }}</h1>
+    <a href="{% url 'lista_productos' %}" class="btn btn-outline-secondary">Cancelar y Volver</a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <!-- Datos Básicos -->
+                    <h5 class="mb-3 text-primary">Información General</h5>
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold">Nombre del Producto</label>
+                            {{ form.nombre }}
+                            <div class="text-danger small">{{ form.nombre.errors }}</div>
+                        </div>
+                    </div>
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold">Descripción (Opcional)</label>
+                            {{ form.descripcion }}
+                            <div class="text-danger small">{{ form.descripcion.errors }}</div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Configuración de Negocio -->
+                    <h5 class="mb-3 text-primary">Clasificación y Precio</h5>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <div class="form-check form-switch mt-4">
+                                {{ form.es_para_venta }}
+                                <label class="form-check-label fw-bold" for="{{ form.es_para_venta.id_for_label }}">{{ form.es_para_venta.label }}</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="form-check form-switch mt-4">
+                                {{ form.es_insumo }}
+                                <label class="form-check-label fw-bold" for="{{ form.es_insumo.id_for_label }}">{{ form.es_insumo.label }}</label>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-success">Precio de Venta</label>
+                            <div class="input-group">
+                                <button type="button" class="btn btn-outline-secondary" onclick="ajustarPrecio(-100)">-100</button>
+                                <span class="input-group-text">$</span>
+                                {{ form.precio }}
+                                <button type="button" class="btn btn-outline-secondary" onclick="ajustarPrecio(100)">+100</button>
+                            </div>
+                            <div class="text-danger small">{{ form.precio.errors }}</div>
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <!-- Control de Stock -->
+                    <h5 class="mb-3 text-primary">Control de Inventario</h5>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Unidad de Medida</label>
+                            {{ form.unidad_medida }}
+                            <small class="text-muted">¿Cómo medís el stock?</small>
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold">Stock Actual</label>
+                            {{ form.stock_actual }}
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label fw-bold text-danger">Alerta de Stock Mínimo</label>
+                            {{ form.stock_minimo }}
+                        </div>
+                    </div>
+
+                    <div class="text-end mt-4">
+                        <button type="submit" class="btn btn-primary px-5">Guardar Producto</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const ventaCheckbox = document.getElementById("{{ form.es_para_venta.id_for_label }}");
+        const precioInput = document.getElementById("{{ form.precio.id_for_label }}");
+
+        window.ajustarPrecio = function(monto) {
+            let actual = parseFloat(precioInput.value) || 0;
+            actual += monto;
+            if (actual < 0) actual = 0;
+            precioInput.value = actual;
+        };
+
+        function togglePrecio() {
+            if (ventaCheckbox.checked) {
+                precioInput.required = true;
+                precioInput.parentElement.parentElement.parentElement.style.opacity = "1";
+            } else {
+                precioInput.required = false;
+                precioInput.parentElement.parentElement.parentElement.style.opacity = "0.5";
+            }
+        }
+
+        if (ventaCheckbox) {
+            ventaCheckbox.addEventListener("change", togglePrecio);
+            togglePrecio();
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,15 @@
+<tr class="fila-producto">
+    <td>
+        <select name="productos_ids[]" class="form-select form-select-sm select-producto" required onchange="recalcularTotal(precioBase, totalInput)">
+            <option value="">Seleccionar...</option>
+            {% for p in productos_venta %}
+                <option value="{{ p.id }}" data-precio="{{ p.precio }}">{{ p.nombre }} (${{ p.precio }})</option>
+            {% endfor %}
+        </select>
+    </td>
+    <td>
+        <input type="number" name="productos_cantidades[]" class="form-control form-control-sm cantidad-producto" value="1" min="1" required onchange="recalcularTotal(precioBase, totalInput)">
+    </td>
+    <td class="text-end fw-bold subtotal-producto">$0.00</td>
+    <td><button type="button" class="btn btn-sm btn-link text-danger" onclick="eliminarFila(this, precioBase, '{{ total_input_id }}')">✕</button></td>
+</tr>

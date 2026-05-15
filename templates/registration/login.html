@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-6 col-lg-4">
+        <div class="card shadow-sm border-0">
+            <div class="card-body p-4">
+                <h3 class="text-center mb-4 text-warning">Acceso Restringido</h3>
+                
+                {% if form.errors %}
+                <div class="alert alert-danger p-2 small">
+                    El usuario y/o la contraseña son incorrectos. Por favor, intentá nuevamente.
+                </div>
+                {% endif %}
+
+                <form method="post" action="{% url 'login' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="id_username" class="form-label">Usuario</label>
+                        <input type="text" name="username" autofocus autocapitalize="none" autocomplete="username" maxlength="150" class="form-control" required id="id_username">
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label for="id_password" class="form-label">Contraseña</label>
+                        <input type="password" name="password" autocomplete="current-password" class="form-control" required id="id_password">
+                    </div>
+
+                    <button type="submit" class="btn btn-dark w-100 py-2">Ingresar al Panel</button>
+                    <input type="hidden" name="next" value="{{ next }}">
+                </form>
+                
+                <div class="text-center mt-4">
+                    <a href="{% url 'reservar_publico' %}" class="text-muted text-decoration-none small">Volver al inicio (Reserva Pública)</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

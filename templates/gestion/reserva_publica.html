@@ -1,0 +1,151 @@
+{% extends 'base.html' %} <!-- Asegúrate de que este base.html no tenga menús ocultos de admin -->
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow-lg border-0 rounded-lg">
+                <div class="card-header bg-dark text-white text-center py-4">
+                    <h3 class="mb-0">Reservar Turno</h3>
+                    <p class="mb-0 small">Studio Salta</p>
+                </div>
+
+                <div class="card-body p-4">
+                    <!-- Bloque de Mensajes (Errores de saturación o Éxito) -->
+                    {% if messages %}
+                    {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <h5 class="text-muted mb-3 border-bottom pb-2">Tus Datos</h5>
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Nombre</label>
+                                {{ form.nombre }}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">Apellido</label>
+                                {{ form.apellido }}
+                            </div>
+                            <div class="col-md-12">
+                                <label class="form-label fw-bold">Teléfono (WhatsApp)</label>
+                                {{ form.telefono }}
+                                <small class="text-muted">Lo usaremos para confirmar tu turno.</small>
+                            </div>
+                        </div>
+
+                        <h5 class="text-muted mb-3 border-bottom pb-2">Detalles del Turno</h5>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Profesional</label>
+                                {{ form.profesional }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Servicio</label>
+                                {{ form.servicio }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Fecha</label>
+                                {{ form.fecha }}
+                            </div>
+                            
+                            <div class="col-md-12 mb-4" id="seccionHora" style="display:none;">
+                                <label class="form-label fw-bold text-primary">Seleccioná el Horario</label>
+                                <select id="selectorHora" class="form-select form-select-lg border-primary">
+                                    <option value="">Cargando horarios...</option>
+                                </select>
+                                {{ form.hora }}
+                                <div id="mensajeHorario" class="form-text mt-1"></div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" id="btnConfirmar" class="btn btn-primary btn-lg" disabled>Confirmar Reserva</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const profSelect = document.querySelector('select[name="profesional"]');
+    const servSelect = document.querySelector('select[name="servicio"]');
+    const fechaInput = document.querySelector('input[name="fecha"]');
+    const horaHidden = document.querySelector('input[name="hora"]');
+    const seccionHora = document.getElementById('seccionHora');
+    const selectorHora = document.getElementById('selectorHora');
+    const btnConfirmar = document.getElementById('btnConfirmar');
+    const mensajeHorario = document.getElementById('mensajeHorario');
+
+    function actualizarHorarios() {
+        const prof = profSelect.value;
+        const serv = servSelect.value;
+        const fecha = fechaInput.value;
+
+        if (prof && serv && fecha) {
+            seccionHora.style.display = 'block';
+            selectorHora.innerHTML = '<option value="">Buscando disponibilidad...</option>';
+            btnConfirmar.disabled = true;
+
+            fetch(`{% url 'api_horarios' %}?profesional=${prof}&servicio=${serv}&fecha=${fecha}`)
+                .then(response => response.json())
+                .then(data => {
+                    selectorHora.innerHTML = '';
+                    if (data.error) {
+                        const opt = document.createElement('option');
+                        opt.value = "";
+                        opt.textContent = "Cerrado / Sin Horario";
+                        selectorHora.appendChild(opt);
+                        mensajeHorario.innerHTML = `<span class="text-danger small">${data.error}</span>`;
+                    } else if (data.horarios.length > 0) {
+                        const optDefault = document.createElement('option');
+                        optDefault.value = "";
+                        optDefault.textContent = "-- Elegí una hora --";
+                        selectorHora.appendChild(optDefault);
+
+                        data.horarios.forEach(h => {
+                            const opt = document.createElement('option');
+                            opt.value = h;
+                            opt.textContent = h + ' hs';
+                            selectorHora.appendChild(opt);
+                        });
+                        mensajeHorario.innerHTML = '<span class="text-success small">Hay horarios disponibles.</span>';
+                    } else {
+                        const opt = document.createElement('option');
+                        opt.value = "";
+                        opt.textContent = "No hay turnos libres";
+                        selectorHora.appendChild(opt);
+                        mensajeHorario.innerHTML = '<span class="text-danger small">No hay disponibilidad para el profesional o servicio en esta fecha.</span>';
+                    }
+                });
+        } else {
+            seccionHora.style.display = 'none';
+        }
+    }
+
+    [profSelect, servSelect, fechaInput].forEach(el => {
+        el.addEventListener('change', actualizarHorarios);
+    });
+
+    selectorHora.addEventListener('change', function() {
+        horaHidden.value = this.value;
+        btnConfirmar.disabled = !this.value;
+    });
+});
+</script>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

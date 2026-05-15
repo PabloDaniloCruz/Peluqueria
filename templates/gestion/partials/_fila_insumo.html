@@ -1,0 +1,14 @@
+<tr class="fila-insumo">
+    <td>
+        <select name="insumos_ids[]" class="form-select form-select-sm" required>
+            <option value="">Seleccionar...</option>
+            {% for p in productos_insumo %}
+                <option value="{{ p.id }}">{{ p.nombre }} ({{ p.get_unidad_medida_display }})</option>
+            {% endfor %}
+        </select>
+    </td>
+    <td>
+        <input type="number" name="insumos_cantidades[]" class="form-control form-control-sm" value="0" min="0" step="0.01" required>
+    </td>
+    <td><button type="button" class="btn btn-sm btn-link text-danger" onclick="eliminarFila(this, precioBase, '{{ total_input_id }}')">✕</button></td>
+</tr>

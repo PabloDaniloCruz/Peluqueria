@@ -1,0 +1,124 @@
+/* =============================================
+   Wizard de Reserva Interna — Estilos
+   ============================================= */
+
+/* --- Step indicator --- */
+.step-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 20px;
+    background: #e9ecef;
+    color: #6c757d;
+    font-weight: 500;
+    transition: all 0.3s;
+}
+.step-item.active {
+    background: #0d6efd;
+    color: white;
+}
+.step-item.done {
+    background: #198754;
+    color: white;
+}
+.step-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.3);
+    font-weight: bold;
+    font-size: 14px;
+}
+.step-connector {
+    width: 40px;
+    height: 2px;
+    background: #dee2e6;
+    align-self: center;
+}
+
+/* --- Service cards --- */
+.servicio-card {
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+.servicio-card:hover {
+    border-color: #0d6efd;
+    transform: translateY(-2px);
+}
+.servicio-card.selected {
+    border-color: #0d6efd;
+    background-color: #e7f1ff;
+}
+
+/* --- Schedule options --- */
+.opcion-horario {
+    border: 2px solid #dee2e6;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 16px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.opcion-horario:hover {
+    border-color: #0d6efd;
+    box-shadow: 0 4px 12px rgba(13, 110, 253, 0.15);
+}
+.opcion-horario.alternativa {
+    border-style: dashed;
+}
+
+/* --- Timeline blocks --- */
+.bloque-timeline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 16px;
+    margin: 6px 0;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid #0d6efd;
+}
+.bloque-timeline .hora {
+    font-weight: bold;
+    font-size: 0.95em;
+    color: #0d6efd;
+    white-space: nowrap;
+}
+.bloque-timeline .servicio-nombre {
+    font-weight: 600;
+}
+.bloque-timeline .prof-nombre {
+    color: #6c757d;
+    font-size: 0.85em;
+}
+
+.badge-score {
+    font-size: 0.85em;
+}
+
+/* --- Custom Time Picker Styling --- */
+#inp_hora_preferida {
+    border-radius: 12px;
+    border: 2px solid #e9ecef;
+    font-weight: 500;
+    color: #495057;
+    background-color: #fff;
+    padding: 0.75rem 1.25rem;
+    transition: all 0.2s ease-in-out;
+}
+
+#inp_hora_preferida:focus {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.1);
+    color: #212529;
+}
+
+#inp_hora_preferida option {
+    padding: 10px;
+    font-size: 1.1rem;
+}

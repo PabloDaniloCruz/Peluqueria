@@ -1,0 +1,200 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+                    <li class="breadcrumb-item active">Nueva Reserva</li>
+                </ol>
+            </nav>
+
+            <!-- Indicador de Pasos -->
+            <div class="d-flex justify-content-center mb-4" id="step-indicator">
+                <div class="step-item active" data-step="1">
+                    <span class="step-number">1</span>
+                    <span class="step-label">Servicios</span>
+                </div>
+                <div class="step-connector"></div>
+                <div class="step-item" data-step="2">
+                    <span class="step-number">2</span>
+                    <span class="step-label">Profesionales</span>
+                </div>
+                <div class="step-connector"></div>
+                <div class="step-item" data-step="3">
+                    <span class="step-number">3</span>
+                    <span class="step-label">Horario</span>
+                </div>
+            </div>
+
+            <!-- Alerta de Errores -->
+            <div id="alerta-error" class="alert alert-danger d-none" role="alert"></div>
+            <div id="alerta-exito" class="alert alert-success d-none" role="alert"></div>
+
+            
+
+            <!-- ============================================== -->
+            <!-- PASO 1: Cliente + Servicios                    -->
+            <!-- ============================================== -->
+            <div id="paso-1" class="wizard-step">
+                <div class="card shadow-lg border-0 mb-4">
+                    <div class="card-header bg-primary text-white py-3">
+                        <h4 class="mb-0">🔍 Cliente y Servicios</h4>
+                    </div>
+                    <div class="card-body p-4">
+                        <!-- Buscador de clientes -->
+                        <div class="bg-light p-3 rounded mb-4 border">
+                            <label class="form-label fw-bold text-primary">Buscar cliente existente</label>
+                            <input type="text" id="clienteSearch" class="form-control form-control-lg" placeholder="Nombre, apellido o teléfono...">
+                            <div id="searchResults" class="list-group mt-2 shadow-sm" style="display:none; position:absolute; z-index:1000; width:90%;"></div>
+                        </div>
+
+                        <input type="hidden" id="cliente_id">
+                        <div class="row mb-4">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Nombre</label>
+                                <input type="text" id="inp_nombre" class="form-control" placeholder="Nombre" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Apellido</label>
+                                <input type="text" id="inp_apellido" class="form-control" placeholder="Apellido" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Teléfono</label>
+                                <input type="text" id="inp_telefono" class="form-control" placeholder="387..." required>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">📅 Fecha</label>
+                                <input type="date" id="inp_fecha" class="form-control" value="{{ fecha_hoy }}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">🕒 Horario Preferido (Opcional)</label>
+                                <select id="inp_hora_preferida" class="form-select form-select-lg">
+                                    <option value="">Cualquier horario</option>
+                                    <!-- Se llena por JS -->
+                                </select>
+                                <small class="text-muted">Saltos de 5 minutos para mayor precisión.</small>
+                            </div>
+                        </div>
+
+                        <h5 class="text-muted mb-3 border-bottom pb-2">Seleccioná los servicios</h5>
+                        <div id="lista-servicios" class="row row-cols-1 row-cols-md-2 g-3">
+                            <!-- Renderizado por JS -->
+                        </div>
+
+                        <div class="bg-light rounded p-3 mt-4 border" id="resumen-servicios" style="display:none;">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <strong>Servicios seleccionados:</strong> <span id="count-servicios">0</span>
+                                </div>
+                                <div>
+                                    <strong>Duración total:</strong> <span id="duracion-total">0 min</span>
+                                </div>
+                                <div>
+                                    <strong>Total estimado:</strong> $<span id="precio-total">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'dashboard' %}" class="btn btn-link text-secondary">← Volver al Dashboard</a>
+                    <button class="btn btn-primary btn-lg" onclick="irAPaso(2)" id="btn-paso2">Continuar → Profesionales</button>
+                </div>
+            </div>
+
+            <!-- ============================================== -->
+            <!-- PASO 2: Asignación de Profesionales            -->
+            <!-- ============================================== -->
+            <div id="paso-2" class="wizard-step" style="display:none;">
+                <div class="card shadow-lg border-0 mb-4">
+                    <div class="card-header bg-primary text-white py-3">
+                        <h4 class="mb-0">✂️ Asignar Profesionales</h4>
+                    </div>
+                    <div class="card-body p-4">
+                        <p class="text-muted mb-4">Podés elegir un profesional específico para cada servicio o dejarlo en "Cualquiera" para que el sistema elija el mejor disponible.</p>
+                        <div id="asignacion-profesionales">
+                            <!-- Renderizado por JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <button class="btn btn-outline-secondary" onclick="irAPaso(1)">← Volver</button>
+                    <button class="btn btn-primary btn-lg" onclick="buscarDisponibilidad()" id="btn-buscar">
+                        🔍 Buscar Horarios Disponibles
+                    </button>
+                </div>
+            </div>
+
+            <!-- ============================================== -->
+            <!-- PASO 3: Selección de Horario Global            -->
+            <!-- ============================================== -->
+            <div id="paso-3" class="wizard-step" style="display:none;">
+                <div class="card shadow-lg border-0 mb-4">
+                    <div class="card-header bg-primary text-white py-3">
+                        <h4 class="mb-0">📅 Elegí tu Horario</h4>
+                    </div>
+                    <div class="card-body p-4">
+                        <div id="loading-horarios" class="text-center py-5" style="display:none;">
+                            <div class="spinner-border text-primary" role="status"></div>
+                            <p class="mt-2 text-muted">Calculando horarios disponibles...</p>
+                        </div>
+
+                        <div id="opciones-horarios">
+                            <!-- Renderizado por JS -->
+                        </div>
+
+                        <div id="alternativas-section" style="display:none;">
+                            <h5 class="text-muted mt-4 mb-3 border-top pt-3">
+                                💡 Más opciones si sos flexible con el profesional
+                            </h5>
+                            <div id="alternativas-horarios">
+                                <!-- Renderizado por JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <button class="btn btn-outline-secondary" onclick="irAPaso(2)">← Volver</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+{% load compress %}
+{% block extra_css %}
+{% compress css %}
+<link href="{% static 'gestion/css/wizard.css' %}" rel="stylesheet">
+{% endcompress %}
+{% endblock %}
+
+{% compress js %}
+<script>
+    window.WIZARD_CONFIG = {
+        servicios: JSON.parse('{{ servicios_json|safe }}'),
+        profesionales: JSON.parse('{{ profesionales_json|safe }}'),
+        horarios: JSON.parse('{{ horarios_json|safe }}'),
+        urls: {
+            buscarClientes: "{% url 'api_buscar_clientes' %}",
+            disponibilidad: "{% url 'api_disponibilidad' %}",
+            reservar: "{% url 'reservar_interno' %}",
+        },
+        csrfToken: "{{ csrf_token }}",
+    };
+</script>
+<script src="{% static 'gestion/js/wizard_reserva.js' %}"></script>
+{% endcompress %}
+{% endblock %}
+

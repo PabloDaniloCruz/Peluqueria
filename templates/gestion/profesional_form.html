@@ -1,0 +1,123 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ titulo }}</h1>
+    <a href="{% url 'lista_profesionales' %}" class="btn btn-outline-secondary">Cancelar y Volver</a>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Nombre</label>
+                            {{ form.nombre }}
+                            {{ form.nombre.errors }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Apellido</label>
+                            {{ form.apellido }}
+                            {{ form.apellido.errors }}
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Teléfono</label>
+                            {{ form.telefono }}
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Email</label>
+                            {{ form.email }}
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label fw-bold text-success">Porcentaje de Comisión (%)</label>
+                        <div class="input-group" style="max-width: 200px;">
+                            {{ form.porcentaje_comision }}
+                            <span class="input-group-text">%</span>
+                        </div>
+                        <small class="text-muted">Porcentaje que se lleva el profesional del total del servicio (ej. 35 o 50).</small>
+                    </div>
+
+                    <hr>
+                    
+                    <h5 class="mb-3">Habilidades (Servicios que realiza)</h5>
+                    <div class="bg-light p-3 rounded border mb-4">
+                        <div class="row">
+                            {% for checkbox in form.habilidades_list %}
+                                <div class="col-md-6 mb-2">
+                                    <div class="form-check">
+                                        {{ checkbox.tag }}
+                                        <label class="form-check-label" for="{{ checkbox.id_for_label }}">
+                                            {{ checkbox.choice_label }}
+                                        </label>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <hr>
+
+                    <h5 class="mb-3 text-primary">Credenciales de Acceso (Opcional)</h5>
+                    <div class="bg-light p-3 rounded border mb-4">
+                        <div class="form-check form-switch mb-3">
+                            {{ form.crear_usuario }}
+                            <label class="form-check-label fw-bold" for="{{ form.crear_usuario.id_for_label }}">{{ form.crear_usuario.label }}</label>
+                            {% if form.crear_usuario.help_text %}
+                                <br><small class="text-muted">{{ form.crear_usuario.help_text }}</small>
+                            {% endif %}
+                        </div>
+
+                        <div id="user-credentials-block" style="display: none;">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">{{ form.username.label }}</label>
+                                    {{ form.username }}
+                                    <div class="text-danger small">{{ form.username.errors }}</div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label fw-bold">{{ form.password.label }}</label>
+                                    {{ form.password }}
+                                    <div class="text-danger small">{{ form.password.errors }}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary px-5">Guardar Profesional</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const checkbox = document.getElementById("{{ form.crear_usuario.id_for_label }}");
+        const block = document.getElementById("user-credentials-block");
+
+        function toggleBlock() {
+            if (checkbox.checked) {
+                block.style.display = "block";
+            } else {
+                block.style.display = "none";
+            }
+        }
+
+        if (checkbox) {
+            checkbox.addEventListener("change", toggleBlock);
+            toggleBlock(); // initial check
+        }
+    });
+</script>
+{% endblock %}

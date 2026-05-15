@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">{{ titulo }}</h1>
+    <a href="{% url 'lista_servicios' %}" class="btn btn-outline-secondary">Cancelar y Volver</a>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Nombre del Servicio</label>
+                        {{ form.nombre }}
+                        {{ form.nombre.errors }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Descripción (Opcional)</label>
+                        {{ form.descripcion }}
+                    </div>
+
+                    <div class="row mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold text-success">Precio Sugerido ($)</label>
+                            <div class="input-group">
+                                <button type="button" class="btn btn-outline-secondary" onclick="ajustarPrecio(-100)">-100</button>
+                                <span class="input-group-text">$</span>
+                                {{ form.precio_sugerido }}
+                                <button type="button" class="btn btn-outline-secondary" onclick="ajustarPrecio(100)">+100</button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label fw-bold">Duración (minutos)</label>
+                            <div class="input-group">
+                                {{ form.duracion_estimada }}
+                                <span class="input-group-text">min</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-end">
+                        <button type="submit" class="btn btn-primary px-5">Guardar Servicio</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const precioInput = document.getElementById("{{ form.precio_sugerido.id_for_label }}");
+
+        window.ajustarPrecio = function(monto) {
+            let actual = parseFloat(precioInput.value) || 0;
+            actual += monto;
+            if (actual < 0) actual = 0;
+            precioInput.value = actual;
+        };
+    });
+</script>
+{% endblock %}

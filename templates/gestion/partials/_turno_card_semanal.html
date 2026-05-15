@@ -1,0 +1,38 @@
+<div class="card mb-1 border-0 shadow-sm
+    {% if turno.estado == 'pendiente' %}border-start border-primary border-3
+    {% elif turno.estado == 'en_curso' %}border-start border-warning border-3
+    {% elif turno.estado == 'completado' %}border-start border-success border-3{% endif %}"
+    style="font-size: 0.78em;">
+    <div class="card-body p-2">
+        <div class="fw-bold text-truncate">
+            {{ turno.fecha_hora|date:"H:i" }}
+            <span class="badge
+                {% if turno.estado == 'pendiente' %}bg-primary
+                {% elif turno.estado == 'en_curso' %}bg-warning text-dark
+                {% elif turno.estado == 'completado' %}bg-success{% endif %}"
+                style="font-size: 0.7em;">
+                {{ turno.get_estado_display }}
+            </span>
+        </div>
+        <div class="text-truncate">
+            <a href="{% url 'perfil_cliente' turno.cliente.id %}" class="text-decoration-none text-dark fw-semibold">
+                {{ turno.cliente }}
+            </a>
+        </div>
+        <div class="text-muted text-truncate">✂️ {{ turno.profesional.nombre }}</div>
+        <div class="text-muted text-truncate">
+            {% for s in turno.servicios.all %}{{ s.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}
+        </div>
+        {% if turno.reserva %}
+            <span class="badge bg-light text-muted border" style="font-size:0.65em;">🔗 R#{{ turno.reserva.id }}</span>
+        {% endif %}
+        <div class="mt-1 d-flex gap-1 flex-wrap">
+            {% if turno.estado != 'completado' and turno.estado != 'cancelado' %}
+                <a href="{% url 'facturar_turno' turno.id %}" class="btn btn-success btn-sm py-0 px-1" style="font-size:0.7em;">💰</a>
+            {% endif %}
+            {% if turno.estado == 'pendiente' %}
+                <a href="{% url 'iniciar_turno' turno.id %}" class="btn btn-primary btn-sm py-0 px-1" style="font-size:0.7em;">▶</a>
+            {% endif %}
+        </div>
+    </div>
+</div>

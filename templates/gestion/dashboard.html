@@ -1,0 +1,291 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{# ============================================================ #}
+{# ENCABEZADO                                                   #}
+{# ============================================================ #}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">Dashboard de Recepción</h1>
+    <div class="d-flex gap-2 align-items-center">
+        {# Selector de vista #}
+        <div class="btn-group btn-group-sm" role="group">
+            <a href="?fecha={{ fecha_filtro|date:'Y-m-d' }}&vista=dia{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if profesional_filtro %}&profesional={{ profesional_filtro }}{% endif %}{% if servicio_filtro %}&servicio={{ servicio_filtro }}{% endif %}{% if estacion_filtro %}&estacion={{ estacion_filtro }}{% endif %}{% if cliente_q %}&q={{ cliente_q }}{% endif %}{% if sin_facturar %}&sin_facturar=1{% endif %}"
+               class="btn {% if vista == 'dia' %}btn-primary{% else %}btn-outline-primary{% endif %}">📋 Día</a>
+            <a href="?fecha={{ fecha_filtro|date:'Y-m-d' }}&vista=semana{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if profesional_filtro %}&profesional={{ profesional_filtro }}{% endif %}{% if servicio_filtro %}&servicio={{ servicio_filtro }}{% endif %}{% if estacion_filtro %}&estacion={{ estacion_filtro }}{% endif %}{% if cliente_q %}&q={{ cliente_q }}{% endif %}{% if sin_facturar %}&sin_facturar=1{% endif %}"
+               class="btn {% if vista == 'semana' %}btn-primary{% else %}btn-outline-primary{% endif %}">📅 Semana</a>
+        </div>
+        <a href="{% url 'reservar_interno' %}" class="btn btn-primary btn-sm">+ Nueva Reserva</a>
+    </div>
+</div>
+
+
+
+{# ============================================================ #}
+{# NAVEGADOR DE FECHAS                                          #}
+{# ============================================================ #}
+{% if vista == 'dia' %}
+<div class="d-flex align-items-center justify-content-center gap-3 mb-4">
+    <a href="?fecha={{ fecha_anterior }}&vista=dia{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if profesional_filtro %}&profesional={{ profesional_filtro }}{% endif %}{% if servicio_filtro %}&servicio={{ servicio_filtro }}{% endif %}{% if estacion_filtro %}&estacion={{ estacion_filtro }}{% endif %}{% if cliente_q %}&q={{ cliente_q }}{% endif %}{% if sin_facturar %}&sin_facturar=1{% endif %}"
+       class="btn btn-outline-secondary btn-sm">◀ Anterior</a>
+    <div class="text-center">
+        <h4 class="mb-0 fw-bold">{{ fecha_filtro|date:"l d \d\e F \d\e Y" }}</h4>
+        {% if es_hoy %}<span class="badge bg-primary">Hoy</span>{% endif %}
+    </div>
+    <a href="?fecha={{ fecha_siguiente }}&vista=dia{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if profesional_filtro %}&profesional={{ profesional_filtro }}{% endif %}{% if servicio_filtro %}&servicio={{ servicio_filtro }}{% endif %}{% if estacion_filtro %}&estacion={{ estacion_filtro }}{% endif %}{% if cliente_q %}&q={{ cliente_q }}{% endif %}{% if sin_facturar %}&sin_facturar=1{% endif %}"
+       class="btn btn-outline-secondary btn-sm">Siguiente ▶</a>
+    {% if not es_hoy %}
+        <a href="?vista=dia" class="btn btn-sm btn-link text-muted">Ir a hoy</a>
+    {% endif %}
+</div>
+{% else %}
+<div class="d-flex align-items-center justify-content-center gap-3 mb-4">
+    <a href="?fecha={{ semana_anterior }}&vista=semana{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if profesional_filtro %}&profesional={{ profesional_filtro }}{% endif %}{% if estacion_filtro %}&estacion={{ estacion_filtro }}{% endif %}"
+       class="btn btn-outline-secondary btn-sm">◀ Semana anterior</a>
+    <div class="text-center">
+        <h4 class="mb-0 fw-bold">Semana del {{ lunes|date:"d/m" }} al {{ domingo|date:"d/m/Y" }}</h4>
+    </div>
+    <a href="?fecha={{ semana_siguiente }}&vista=semana{% if estado_filtro %}&estado={{ estado_filtro }}{% endif %}{% if profesional_filtro %}&profesional={{ profesional_filtro }}{% endif %}{% if estacion_filtro %}&estacion={{ estacion_filtro }}{% endif %}"
+       class="btn btn-outline-secondary btn-sm">Semana siguiente ▶</a>
+    <a href="?vista=semana" class="btn btn-sm btn-link text-muted">Esta semana</a>
+</div>
+{% endif %}
+
+{# ============================================================ #}
+{# CONTADORES (solo vista día)                                  #}
+{# ============================================================ #}
+{% if vista == 'dia' %}
+<div class="row row-cols-2 row-cols-md-4 g-3 mb-4">
+    <div class="col">
+        <a href="?fecha={{ fecha_filtro|date:'Y-m-d' }}&vista=dia" class="text-decoration-none">
+            <div class="card border-0 bg-light text-center py-2 {% if not estado_filtro %}border border-secondary border-2{% endif %}">
+                <div class="fs-3 fw-bold">{{ contadores.total }}</div>
+                <div class="text-muted small">Total</div>
+            </div>
+        </a>
+    </div>
+    <div class="col">
+        <a href="?fecha={{ fecha_filtro|date:'Y-m-d' }}&vista=dia&estado=pendiente{% if profesional_filtro %}&profesional={{ profesional_filtro }}{% endif %}" class="text-decoration-none">
+            <div class="card border-0 text-center py-2 {% if estado_filtro == 'pendiente' %}bg-primary text-white{% else %}bg-light{% endif %}">
+                <div class="fs-3 fw-bold">{{ contadores.pendiente }}</div>
+                <div class="{% if estado_filtro == 'pendiente' %}text-white-50{% else %}text-muted{% endif %} small">Pendientes</div>
+            </div>
+        </a>
+    </div>
+    <div class="col">
+        <a href="?fecha={{ fecha_filtro|date:'Y-m-d' }}&vista=dia&estado=en_curso{% if profesional_filtro %}&profesional={{ profesional_filtro }}{% endif %}" class="text-decoration-none">
+            <div class="card border-0 text-center py-2 {% if estado_filtro == 'en_curso' %}bg-warning{% else %}bg-light{% endif %}">
+                <div class="fs-3 fw-bold">{{ contadores.en_curso }}</div>
+                <div class="text-muted small">En Curso</div>
+            </div>
+        </a>
+    </div>
+    <div class="col">
+        <a href="?fecha={{ fecha_filtro|date:'Y-m-d' }}&vista=dia&estado=completado{% if profesional_filtro %}&profesional={{ profesional_filtro }}{% endif %}" class="text-decoration-none">
+            <div class="card border-0 text-center py-2 {% if estado_filtro == 'completado' %}bg-success text-white{% else %}bg-light{% endif %}">
+                <div class="fs-3 fw-bold">{{ contadores.completado }}</div>
+                <div class="{% if estado_filtro == 'completado' %}text-white-50{% else %}text-muted{% endif %} small">Completados</div>
+            </div>
+        </a>
+    </div>
+</div>
+{% endif %}
+
+{# ============================================================ #}
+{# WIDGET: STOCK BAJO                                           #}
+{# ============================================================ #}
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-3">
+        <div class="d-flex align-items-center justify-content-between">
+            <div>
+                <h6 class="mb-1 fw-bold"><i class="bi bi-box-seam"></i> Estado del Inventario</h6>
+                <div class="d-flex gap-3 mt-2">
+                    <span class="badge bg-success fs-6 px-3 py-2">
+                        ✅ {{ stock_normal }} normal
+                    </span>
+                    <span class="badge bg-warning text-dark fs-6 px-3 py-2">
+                        ⚠️ {{ stock_alerta }} bajo stock
+                    </span>
+                    <span class="badge bg-danger fs-6 px-3 py-2">
+                        🚨 {{ stock_critico }} sin stock
+                    </span>
+                </div>
+            </div>
+            <a href="{% url 'lista_productos' %}" class="btn btn-outline-secondary btn-sm">Ir a Inventario →</a>
+        </div>
+        {% if productos_bajo_stock %}
+        <div class="mt-3 small">
+            <span class="text-muted">Productos con stock bajo:</span>
+            <div class="d-flex flex-wrap gap-2 mt-1">
+                {% for p in productos_bajo_stock %}
+                <span class="badge {% if p.stock_actual <= 0 %}bg-danger{% else %}bg-warning text-dark{% endif %} p-2">
+                    {{ p.nombre }}: {{ p.stock_actual }} {{ p.get_unidad_medida_display }}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{# ============================================================ #}
+{# BARRA DE FILTROS                                             #}
+{# ============================================================ #}
+<form method="get" class="card border-0 bg-light p-3 mb-4">
+    <input type="hidden" name="fecha" value="{{ fecha_filtro|date:'Y-m-d' }}">
+    <input type="hidden" name="vista" value="{{ vista }}">
+
+    <div class="row g-2 align-items-end">
+        <div class="col-12 col-md-3">
+            <label class="form-label small fw-bold mb-1">🔍 Buscar cliente</label>
+            <input type="text" name="q" class="form-control form-control-sm"
+                   placeholder="Nombre, apellido o teléfono..." value="{{ cliente_q }}">
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label small fw-bold mb-1">Estado</label>
+            <select name="estado" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                {% for value, label in estados %}
+                    {% if value != 'cancelado' %}
+                        <option value="{{ value }}" {% if estado_filtro == value %}selected{% endif %}>{{ label }}</option>
+                    {% endif %}
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label small fw-bold mb-1">Profesional</label>
+            <select name="profesional" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                {% for p in profesionales %}
+                    <option value="{{ p.id }}" {% if profesional_filtro == p.id|stringformat:'s' %}selected{% endif %}>
+                        {{ p.nombre }} {{ p.apellido }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label small fw-bold mb-1">Servicio</label>
+            <select name="servicio" class="form-select form-select-sm">
+                <option value="">Todos</option>
+                {% for s in servicios %}
+                    <option value="{{ s.id }}" {% if servicio_filtro == s.id|stringformat:'s' %}selected{% endif %}>
+                        {{ s.nombre }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-2">
+            <label class="form-label small fw-bold mb-1">Estación</label>
+            <select name="estacion" class="form-select form-select-sm">
+                <option value="">Todas</option>
+                {% for e in estaciones %}
+                    <option value="{{ e.id }}" {% if estacion_filtro == e.id|stringformat:'s' %}selected{% endif %}>
+                        {{ e.nombre }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-6 col-md-1">
+            <label class="form-label small fw-bold mb-1">Extra</label>
+            <div class="form-check form-switch mt-1">
+                <input class="form-check-input" type="checkbox" name="sin_facturar" id="sinFacturar"
+                       value="1" {% if sin_facturar %}checked{% endif %}>
+                <label class="form-check-label small" for="sinFacturar">Sin facturar</label>
+            </div>
+        </div>
+        <div class="col-12 col-md-auto">
+            <button type="submit" class="btn btn-primary btn-sm">Filtrar</button>
+            <a href="?fecha={{ fecha_filtro|date:'Y-m-d' }}&vista={{ vista }}" class="btn btn-outline-secondary btn-sm">Limpiar</a>
+        </div>
+    </div>
+
+    {# Chips de filtros activos #}
+    {% with hay_filtros=estado_filtro|add:profesional_filtro|add:servicio_filtro|add:estacion_filtro|add:reserva_filtro|add:cliente_q|add:sin_facturar %}
+    {% if hay_filtros %}
+    <div class="mt-2 d-flex flex-wrap gap-1 align-items-center">
+        <small class="text-muted me-1">Activos:</small>
+        {% if estado_filtro %}<span class="badge bg-primary">Estado: {{ estado_filtro }}</span>{% endif %}
+        {% if profesional_filtro %}<span class="badge bg-secondary">Profesional</span>{% endif %}
+        {% if servicio_filtro %}<span class="badge bg-secondary">Servicio</span>{% endif %}
+        {% if estacion_filtro %}<span class="badge bg-secondary">Estación</span>{% endif %}
+        {% if reserva_filtro %}<span class="badge bg-info text-dark">Reserva #{{ reserva_filtro }}</span>{% endif %}
+        {% if cliente_q %}<span class="badge bg-info text-dark">Cliente: "{{ cliente_q }}"</span>{% endif %}
+        {% if sin_facturar %}<span class="badge bg-warning text-dark">Sin facturar</span>{% endif %}
+    </div>
+    {% endif %}
+    {% endwith %}
+</form>
+
+{# ============================================================ #}
+{# VISTA DIARIA                                                 #}
+{# ============================================================ #}
+{% if vista == 'dia' %}
+<div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+    {% for turno in turnos %}
+    <div class="col d-flex">
+        {% include 'gestion/partials/_turno_card_diaria.html' with turno=turno fecha_filtro=fecha_filtro %}
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info text-center py-5">
+            {% with hay_filtros=estado_filtro|add:profesional_filtro|add:servicio_filtro|add:estacion_filtro|add:reserva_filtro|add:cliente_q|add:sin_facturar %}
+            {% if hay_filtros %}
+                <h4>No hay turnos con esos filtros.</h4>
+                <a href="?fecha={{ fecha_filtro|date:'Y-m-d' }}&vista=dia" class="btn btn-outline-secondary mt-2">Limpiar filtros</a>
+            {% else %}
+                <h3>No hay turnos para esta fecha.</h3>
+                <a href="{% url 'reservar_interno' %}" class="btn btn-primary">+ Nueva Reserva</a>
+            {% endif %}
+            {% endwith %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% for turno in turnos %}
+    {% include 'gestion/partials/_modal_cancelacion.html' with turno=turno %}
+{% endfor %}
+
+{# ============================================================ #}
+{# VISTA SEMANAL                                                #}
+{# ============================================================ #}
+{% else %}
+<div class="table-responsive">
+    <table class="table table-bordered align-top" style="min-width: 900px;">
+        <thead class="table-light">
+            <tr>
+                {% for dia, turnos_dia in semana_data %}
+                <th class="text-center {% if dia == hoy %}bg-primary text-white{% endif %}" style="width: 14.28%;">
+                    <div class="fw-bold">{{ dia|date:"D" }}</div>
+                    <div class="{% if dia == hoy %}text-white{% else %}text-muted{% endif %} small">
+                        {{ dia|date:"d/m" }}
+                    </div>
+                    {% if turnos_dia %}
+                        <span class="badge {% if dia == hoy %}bg-light text-primary{% else %}bg-primary{% endif %} mt-1">
+                            {{ turnos_dia|length }}
+                        </span>
+                    {% endif %}
+                </th>
+                {% endfor %}
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                {% for dia, turnos_dia in semana_data %}
+                <td class="p-1 {% if dia == hoy %}bg-primary bg-opacity-10{% endif %}" style="vertical-align: top; min-height: 200px;">
+                    {% if turnos_dia %}
+                        {% for turno in turnos_dia %}
+                        {% include 'gestion/partials/_turno_card_semanal.html' with turno=turno %}
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted py-4" style="font-size: 0.8em;">Sin turnos</div>
+                    {% endif %}
+                </td>
+                {% endfor %}
+            </tr>
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% endblock %}
