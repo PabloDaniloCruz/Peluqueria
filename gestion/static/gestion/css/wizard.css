@@ -40,6 +40,24 @@
     align-self: center;
 }
 
+/* Responsivo para celulares pequeños */
+@media (max-width: 576px) {
+    .step-item {
+        padding: 6px;
+        border-radius: 50%;
+        width: 36px;
+        height: 36px;
+        justify-content: center;
+        align-items: center;
+    }
+    .step-label {
+        display: none;
+    }
+    .step-connector {
+        width: 20px;
+    }
+}
+
 /* --- Service cards --- */
 .servicio-card {
     cursor: pointer;

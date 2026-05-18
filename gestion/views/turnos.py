@@ -3,6 +3,8 @@ from decimal import Decimal
 from django.shortcuts import redirect, get_object_or_404, render
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.core.exceptions import ValidationError
 
 from ..models import Turno, Venta, Producto, DetalleVentaProducto, ConsumoInsumo
 from ..forms import FacturacionForm
@@ -43,60 +45,81 @@ def facturar_turno(request, turno_id):
     if request.method == 'POST':
         form = FacturacionForm(request.POST)
         if form.is_valid():
-            total_real = form.cleaned_data['total']
-            metodo_pago = form.cleaned_data['metodo_pago']
-            
-            # Calcular comisión basada en el porcentaje del profesional
-            porcentaje = turno.profesional.porcentaje_comision
-            comision_calculada = (total_real * porcentaje) / 100
+            try:
+                with transaction.atomic():
+                    # Bloquear el turno para evitar doble facturación concurrente
+                    turno = Turno.objects.select_for_update().get(id=turno.id)
+                    if turno.estado == 'completado':
+                        raise ValidationError("Este turno ya fue facturado por otro usuario concurrentemente.")
 
-            # Crear la Venta
-            venta = Venta.objects.create(
-                turno=turno,
-                total=total_real,
-                metodo_pago=metodo_pago,
-                comision=comision_calculada
-            )
+                    total_real = form.cleaned_data['total']
+                    metodo_pago = form.cleaned_data['metodo_pago']
+                    
+                    # Calcular comisión basada en el porcentaje del profesional
+                    porcentaje = turno.profesional.porcentaje_comision
+                    comision_calculada = (total_real * porcentaje) / 100
 
-            # Procesar Productos Vendidos
-            prod_ids = request.POST.getlist('productos_ids[]')
-            prod_cants = request.POST.getlist('productos_cantidades[]')
-            for pid, cant in zip(prod_ids, prod_cants):
-                if pid and cant:
-                    prod = Producto.objects.get(id=pid)
-                    cantidad = int(cant)
-                    DetalleVentaProducto.objects.create(
-                        venta=venta,
-                        producto=prod,
-                        cantidad=cantidad,
-                        precio_unitario=prod.precio
-                    )
-                    # Descontar stock
-                    prod.stock_actual -= cantidad
-                    prod.save()
-
-            # Procesar Insumos Consumidos
-            insumo_ids = request.POST.getlist('insumos_ids[]')
-            insumo_cants = request.POST.getlist('insumos_cantidades[]')
-            for iid, cant in zip(insumo_ids, insumo_cants):
-                if iid and cant:
-                    prod = Producto.objects.get(id=iid)
-                    cantidad = Decimal(cant)
-                    ConsumoInsumo.objects.create(
+                    # Crear la Venta
+                    venta = Venta.objects.create(
                         turno=turno,
-                        producto=prod,
-                        cantidad_usada=cantidad
+                        total=total_real,
+                        metodo_pago=metodo_pago,
+                        comision=comision_calculada
                     )
-                    # Descontar stock (Decimal - Decimal funciona correctamente)
-                    prod.stock_actual -= cantidad
-                    prod.save()
 
-            # Completar el turno
-            turno.estado = 'completado'
-            turno.save()
+                    # Procesar Productos Vendidos
+                    prod_ids = request.POST.getlist('productos_ids[]')
+                    prod_cants = request.POST.getlist('productos_cantidades[]')
+                    for pid, cant in zip(prod_ids, prod_cants):
+                        if pid and cant:
+                            prod = Producto.objects.select_for_update().get(id=pid)
+                            cantidad = int(cant)
+                            
+                            # Validar que haya suficiente stock
+                            if prod.stock_actual < cantidad:
+                                raise ValidationError(f"No hay suficiente stock del producto '{prod.nombre}' (Stock actual: {prod.stock_actual}, solicitado: {cantidad}).")
+                            
+                            DetalleVentaProducto.objects.create(
+                                venta=venta,
+                                producto=prod,
+                                cantidad=cantidad,
+                                precio_unitario=prod.precio
+                            )
+                            # Descontar stock
+                            prod.stock_actual -= cantidad
+                            prod.save()
 
-            messages.success(request, f"Venta registrada por ${total_real}. Se actualizó el inventario.")
-            return redirect('dashboard')
+                    # Procesar Insumos Consumidos
+                    insumo_ids = request.POST.getlist('insumos_ids[]')
+                    insumo_cants = request.POST.getlist('insumos_cantidades[]')
+                    for iid, cant in zip(insumo_ids, insumo_cants):
+                        if iid and cant:
+                            prod = Producto.objects.select_for_update().get(id=iid)
+                            cantidad = Decimal(cant)
+                            
+                            # Validar que haya suficiente stock
+                            if prod.stock_actual < cantidad:
+                                raise ValidationError(f"No hay suficiente stock del insumo '{prod.nombre}' (Stock actual: {prod.stock_actual}, solicitado: {cantidad}).")
+                            
+                            ConsumoInsumo.objects.create(
+                                turno=turno,
+                                producto=prod,
+                                cantidad_usada=cantidad
+                            )
+                            # Descontar stock (Decimal - Decimal funciona correctamente)
+                            prod.stock_actual -= cantidad
+                            prod.save()
+
+                    # Completar el turno
+                    turno.estado = 'completado'
+                    turno.save()
+
+                    messages.success(request, f"Venta registrada por ${total_real}. Se actualizó el inventario.")
+                    return redirect('dashboard')
+            except ValidationError as e:
+                for err in e.messages:
+                    messages.error(request, err)
+                return redirect('facturar_turno', turno_id=turno.id)
     else:
         # Pre-cargar el formulario con el total sugerido
         form = FacturacionForm(initial={'total': total_sugerido})

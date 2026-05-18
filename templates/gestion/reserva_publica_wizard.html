@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5 mb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <!-- Encabezado de la Marca Pública -->
+            <div class="text-center mb-4">
+                <h2 class="fw-bold text-dark">Studio Salta</h2>
+                <p class="text-muted">Reservá tu turno online de forma simple y rápida</p>
+            </div>
+
+            <!-- Indicador de Pasos -->
+            <div class="d-flex justify-content-center mb-4" id="step-indicator">
+                <div class="step-item active" data-step="1">
+                    <span class="step-number">1</span>
+                    <span class="step-label">Servicios</span>
+                </div>
+                <div class="step-connector"></div>
+                <div class="step-item" data-step="2">
+                    <span class="step-number">2</span>
+                    <span class="step-label">Profesionales</span>
+                </div>
+                <div class="step-connector"></div>
+                <div class="step-item" data-step="3">
+                    <span class="step-number">3</span>
+                    <span class="step-label">Horario</span>
+                </div>
+            </div>
+
+            <!-- Alerta de Errores -->
+            <div id="alerta-error" class="alert alert-danger d-none" role="alert"></div>
+            <div id="alerta-exito" class="alert alert-success d-none" role="alert"></div>
+
+            <!-- ============================================== -->
+            <!-- PASO 1: Tus Datos + Servicios                 -->
+            <!-- ============================================== -->
+            <div id="paso-1" class="wizard-step">
+                <div class="card shadow-lg border-0 mb-4">
+                    <div class="card-header bg-dark text-white py-3">
+                        <h4 class="mb-0 text-center"><i class="bi bi-person-check"></i> Tus Datos y Servicios</h4>
+                    </div>
+                    <div class="card-body p-4">
+                        
+                        <h5 class="text-muted mb-3 border-bottom pb-2">1. Completá tus datos de contacto</h5>
+                        <input type="hidden" id="cliente_id">
+                        <div class="row mb-4">
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Nombre</label>
+                                <input type="text" id="inp_nombre" class="form-control form-control-lg border-secondary-subtle" placeholder="Tu nombre" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Apellido</label>
+                                <input type="text" id="inp_apellido" class="form-control form-control-lg border-secondary-subtle" placeholder="Tu apellido" required>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label class="form-label fw-bold">Teléfono (WhatsApp)</label>
+                                <input type="text" id="inp_telefono" class="form-control form-control-lg border-secondary-subtle" placeholder="Ej: 3875551234" required>
+                                <small class="text-muted">Sin el 0 ni el 15. Ej: 3875123456</small>
+                            </div>
+                        </div>
+
+                        <h5 class="text-muted mb-3 border-bottom pb-2">2. ¿Qué día querés venir?</h5>
+                        <div class="row mb-4">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">📅 Fecha</label>
+                                <input type="date" id="inp_fecha" class="form-control form-control-lg border-secondary-subtle" value="{{ fecha_hoy }}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label fw-bold">🕒 Horario de Preferencia (Opcional)</label>
+                                <select id="inp_hora_preferida" class="form-select form-select-lg border-secondary-subtle">
+                                    <option value="">Cualquier horario</option>
+                                </select>
+                                <small class="text-muted">Intentaremos buscar turnos lo más cercano posible.</small>
+                            </div>
+                        </div>
+
+                        <h5 class="text-muted mb-3 border-bottom pb-2">3. Elegí uno o más servicios</h5>
+                        <div id="lista-servicios" class="row row-cols-1 row-cols-md-2 g-3 mb-4">
+                            <!-- Renderizado por JS -->
+                        </div>
+
+                        <div class="bg-light rounded p-3 mt-4 border border-secondary-subtle" id="resumen-servicios" style="display:none;">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div>
+                                    <strong>Servicios elegidos:</strong> <span id="count-servicios" class="badge bg-dark fs-6 ms-1">0</span>
+                                </div>
+                                <div>
+                                    <strong>Duración estimada total:</strong> <span id="duracion-total" class="fw-bold text-dark">0 min</span>
+                                </div>
+                                <div>
+                                    <strong>Total estimado:</strong> <span class="fw-bold text-primary fs-5">$<span id="precio-total">0</span></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-grid">
+                    <button class="btn btn-dark btn-lg py-3 fw-bold shadow" onclick="irAPaso(2)" id="btn-paso2" disabled>
+                        Continuar a Selección de Estilistas →
+                    </button>
+                </div>
+            </div>
+
+            <!-- ============================================== -->
+            <!-- PASO 2: Selección de Profesionales             -->
+            <!-- ============================================== -->
+            <div id="paso-2" class="wizard-step" style="display:none;">
+                <div class="card shadow-lg border-0 mb-4">
+                    <div class="card-header bg-dark text-white py-3">
+                        <h4 class="mb-0 text-center"><i class="bi bi-scissors"></i> ¿Quién querés que te atienda?</h4>
+                    </div>
+                    <div class="card-body p-4">
+                        <p class="text-muted mb-4 text-center">Podés elegir un profesional específico para cada servicio o dejarlo en "Cualquier profesional" para maximizar tus opciones de horario.</p>
+                        <div id="asignacion-profesionales">
+                            <!-- Renderizado por JS -->
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between gap-3">
+                    <button class="btn btn-outline-secondary btn-lg px-4" onclick="irAPaso(1)">← Volver</button>
+                    <button class="btn btn-dark btn-lg flex-grow-1 py-3 fw-bold shadow" onclick="buscarDisponibilidad()" id="btn-buscar">
+                        🔍 Buscar Horarios Disponibles
+                    </button>
+                </div>
+            </div>
+
+            <!-- ============================================== -->
+            <!-- PASO 3: Selección de Horarios Libres          -->
+            <!-- ============================================== -->
+            <div id="paso-3" class="wizard-step" style="display:none;">
+                <div class="card shadow-lg border-0 mb-4">
+                    <div class="card-header bg-dark text-white py-3">
+                        <h4 class="mb-0 text-center"><i class="bi bi-calendar-check"></i> Horarios Disponibles Encontrados</h4>
+                    </div>
+                    <div class="card-body p-4">
+                        <div id="loading-horarios" class="text-center py-5" style="display:none;">
+                            <div class="spinner-border text-dark" role="status"></div>
+                            <p class="mt-2 text-muted fw-bold">Buscando huecos libres en nuestra agenda...</p>
+                        </div>
+
+                        <div id="opciones-horarios">
+                            <!-- Renderizado por JS -->
+                        </div>
+
+                        <div id="alternativas-section" style="display:none;">
+                            <h5 class="text-muted mt-4 mb-3 border-top pt-3 text-center">
+                                💡 Otras alternativas con diferentes estilistas
+                            </h5>
+                            <div id="alternativas-horarios">
+                                <!-- Renderizado por JS -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-start">
+                    <button class="btn btn-outline-secondary btn-lg px-4" onclick="irAPaso(2)">← Volver a Estilistas</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% load compress %}
+{% block extra_css %}
+{% compress css %}
+<link href="{% static 'gestion/css/wizard.css' %}" rel="stylesheet">
+<style>
+    .opcion-horario {
+        background-color: #ffffff;
+        border: 2px solid #e9ecef;
+        border-radius: 12px;
+        padding: 20px;
+        margin-bottom: 20px;
+        transition: all 0.25s ease;
+    }
+    .opcion-horario:hover {
+        border-color: #212529;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    }
+    .opcion-horario.alternativa {
+        border-style: dashed;
+        border-color: #ced4da;
+    }
+    .timeline-bloques {
+        border-left: 3px solid #212529;
+        padding-left: 20px;
+        margin-left: 10px;
+    }
+    .bloque-timeline {
+        position: relative;
+        padding-bottom: 12px;
+    }
+    .bloque-timeline::before {
+        content: '';
+        position: absolute;
+        left: -27px;
+        top: 6px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: #212529;
+        border: 2px solid #fff;
+    }
+    .bloque-timeline .hora {
+        font-weight: bold;
+        color: #212529;
+        font-size: 0.95rem;
+    }
+    .bloque-timeline .servicio-nombre {
+        font-weight: 600;
+        display: block;
+    }
+    .bloque-timeline .prof-nombre {
+        color: #6c757d;
+        font-size: 0.85rem;
+    }
+</style>
+{% endcompress %}
+{% endblock %}
+
+{% compress js %}
+<script>
+    window.WIZARD_CONFIG = {
+        servicios: JSON.parse('{{ servicios_json|safe }}'),
+        profesionales: JSON.parse('{{ profesionales_json|safe }}'),
+        horarios: JSON.parse('{{ horarios_json|safe }}'),
+        urls: {
+            buscarClientes: null, // Deshabilitado en modo público
+            disponibilidad: "{% url 'api_disponibilidad_publica' %}",
+            reservar: "{% url 'confirmar_reserva_publica' %}",
+        },
+        csrfToken: "{{ csrf_token }}",
+        preLoad: null,
+        mode: 'public'
+    };
+</script>
+<script src="{% static 'gestion/js/wizard_reserva.js' %}"></script>
+{% endcompress %}
+{% endblock %}

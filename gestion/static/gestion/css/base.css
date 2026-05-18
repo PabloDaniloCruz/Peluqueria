@@ -2,8 +2,11 @@
    Studio Salta — Estilos globales
    ============================================= */
 
-body {
+html, body {
+    margin: 0 !important;
+    padding: 0 !important;
     background-color: #f8f9fa;
+    overflow-x: hidden;
 }
 
 .sidebar {

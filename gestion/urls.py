@@ -19,6 +19,8 @@ urlpatterns = [
     path('api/clientes/buscar/', views.api_buscar_clientes, name='api_buscar_clientes'),
     path('api/horarios/', views.api_horarios_disponibles, name='api_horarios'),
     path('api/disponibilidad-combinada/', views.api_disponibilidad_combinada, name='api_disponibilidad'),
+    path('api/disponibilidad-publica/', views.api_disponibilidad_publica, name='api_disponibilidad_publica'),
+    path('api/reservas/publica/confirmar/', views.confirmar_reserva_publica, name='confirmar_reserva_publica'),
     
     # --- Fichas Técnicas ---
     path('clientes/<int:cliente_id>/', views.perfil_cliente, name='perfil_cliente'),

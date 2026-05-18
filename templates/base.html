@@ -8,6 +8,7 @@
     <title>Studio Salta | Gestión</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
     {% load compress %}
     {% compress css %}
     <link href="{% static 'gestion/css/base.css' %}" rel="stylesheet">
@@ -17,11 +18,24 @@
 
 <body>
 
-    <div class="container-fluid">
-        <div class="row">
+    <div class="container-fluid p-0">
+        <!-- BARRA DE NAVEGACIÓN MÓVIL -->
+        {% if user.is_authenticated %}
+        <nav class="navbar navbar-dark bg-dark d-md-none py-2 px-3 shadow-sm sticky-top">
+            <div class="container-fluid">
+                <a class="navbar-brand text-warning fw-bold fs-4 mb-0" href="{% url 'dashboard' %}">Studio Salta</a>
+                <button class="navbar-toggler border-0" type="button" data-bs-toggle="offcanvas" data-bs-target="#mobileSidebar" aria-controls="mobileSidebar">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+            </div>
+        </nav>
+        {% endif %}
+
+        <div class="row g-0">
             {% if user.is_authenticated %}
-            <nav class="col-md-2 d-none d-md-block sidebar p-3 shadow">
-                <h4 class="text-center mt-2 text-warning">Studio Salta</h4>
+            <!-- SIDEBAR ESCRITORIO -->
+            <nav class="col-md-2 d-none d-md-block sidebar p-3 shadow position-sticky top-0 style-sidebar" style="background: #212529; min-height: 100vh;">
+                <h4 class="text-center mt-2 text-warning fw-bold">Studio Salta</h4>
                 <hr class="text-white">
                 <ul class="nav flex-column gap-2">
                     <li class="nav-item">
@@ -65,27 +79,79 @@
                     </li>
                 </ul>
             </nav>
-            <main class="col-md-10 ms-sm-auto px-md-4 py-4">
-                {% else %}
-                <main class="col-12 col-md-8 mx-auto px-md-4 py-4 mt-5">
-                    <div class="text-center mb-4">
-                        <h2 class="text-warning">Studio Salta</h2>
-                    </div>
-                    {% endif %}
 
-                    {% if messages %}
-                        {% for message in messages %}
-                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm" role="alert">
-                                {{ message }}
-                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                            </div>
-                        {% endfor %}
-                    {% endif %}
+            <!-- OFFCANVAS MÓVIL -->
+            <div class="offcanvas offcanvas-start text-bg-dark d-md-none" tabindex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">
+                <div class="offcanvas-header border-bottom border-secondary">
+                    <h5 class="offcanvas-title text-warning fw-bold fs-4" id="mobileSidebarLabel">Studio Salta</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+                </div>
+                <div class="offcanvas-body p-3">
+                    <ul class="nav flex-column gap-2">
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{% url 'dashboard' %}">📅 Dashboard</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{% url 'reservar_interno' %}">✨ Nueva Reserva Interna</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{% url 'venta_libre' %}">🛒 Nueva Venta Mostrador</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{% url 'lista_clientes' %}">👥 Clientes</a>
+                        </li>
+                        {% if user.is_superuser %}
+                        <li class="nav-item border-top mt-3 pt-3">
+                            <span class="nav-link text-white small fw-bold text-uppercase">Administración</span>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{% url 'lista_profesionales' %}">✂️ Profesionales</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{% url 'lista_servicios' %}">💇‍♀️ Servicios</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{% url 'lista_productos' %}">📦 Inventario</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{% url 'lista_estaciones' %}">🪑 Estaciones</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link text-white" href="{% url 'panel_configuracion' %}">⚙️ Configuración</a>
+                        </li>
+                        {% endif %}
 
-                    {% block content %}
+                        <li class="nav-item mt-4">
+                            <form action="{% url 'logout' %}" method="post">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-outline-danger w-100">Cerrar Sesión</button>
+                            </form>
+                        </li>
+                    </ul>
+                </div>
+            </div>
 
-                    {% endblock %}
-                </main>
+            <main class="col-12 col-md-10 px-3 px-md-4 py-4">
+            {% else %}
+            <main class="col-11 col-sm-9 col-md-6 mx-auto px-2 py-4 mt-5">
+                <div class="text-center mb-4">
+                    <h2 class="text-warning fw-bold">Studio Salta</h2>
+                </div>
+            {% endif %}
+
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show shadow-sm" role="alert">
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                {% block content %}
+
+                {% endblock %}
+            </main>
         </div>
     </div>
 

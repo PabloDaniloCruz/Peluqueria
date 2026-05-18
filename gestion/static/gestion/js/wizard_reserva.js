@@ -23,51 +23,60 @@ document.addEventListener('DOMContentLoaded', function () {
     const resultsDiv = document.getElementById('searchResults');
     let debounceTimer;
 
-    searchInput.addEventListener('input', function () {
-        clearTimeout(debounceTimer);
-        const query = this.value;
-        if (query.length < 2) {
-            resultsDiv.style.display = 'none';
-            return;
-        }
-        debounceTimer = setTimeout(() => {
-            fetch(`${CONFIG.urls.buscarClientes}?q=${encodeURIComponent(query)}`)
-                .then(r => r.json())
-                .then(data => {
-                    resultsDiv.innerHTML = '';
-                    if (data.results.length > 0) {
-                        data.results.forEach(c => {
-                            const btn = document.createElement('button');
-                            btn.type = 'button';
-                            btn.className = 'list-group-item list-group-item-action';
-                            btn.innerHTML = `<strong>${c.nombre} ${c.apellido}</strong><br><small class="text-muted">${c.telefono}</small>`;
-                            btn.onclick = () => seleccionarCliente(c);
-                            resultsDiv.appendChild(btn);
-                        });
-                        resultsDiv.style.display = 'block';
-                    } else {
-                        resultsDiv.style.display = 'none';
-                    }
-                });
-        }, 300);
-    });
+    if (searchInput && resultsDiv) {
+        searchInput.addEventListener('input', function () {
+            clearTimeout(debounceTimer);
+            const query = this.value;
+            if (query.length < 2) {
+                resultsDiv.style.display = 'none';
+                return;
+            }
+            debounceTimer = setTimeout(() => {
+                fetch(`${CONFIG.urls.buscarClientes}?q=${encodeURIComponent(query)}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        resultsDiv.innerHTML = '';
+                        if (data.results.length > 0) {
+                            data.results.forEach(c => {
+                                const btn = document.createElement('button');
+                                btn.type = 'button';
+                                btn.className = 'list-group-item list-group-item-action';
+                                btn.innerHTML = `<strong>${c.nombre} ${c.apellido}</strong><br><small class="text-muted">${c.telefono}</small>`;
+                                btn.onclick = () => seleccionarCliente(c);
+                                resultsDiv.appendChild(btn);
+                            });
+                            resultsDiv.style.display = 'block';
+                        } else {
+                            resultsDiv.style.display = 'none';
+                        }
+                    });
+            }, 300);
+        });
 
-    document.addEventListener('click', function (e) {
-        if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
-            resultsDiv.style.display = 'none';
-        }
-    });
+        document.addEventListener('click', function (e) {
+            if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target)) {
+                resultsDiv.style.display = 'none';
+            }
+        });
+    }
 
     function seleccionarCliente(c) {
-        document.getElementById('cliente_id').value = c.id;
-        document.getElementById('inp_nombre').value = c.nombre;
-        document.getElementById('inp_apellido').value = c.apellido;
-        document.getElementById('inp_telefono').value = c.telefono;
-        resultsDiv.style.display = 'none';
-        searchInput.value = `${c.nombre} ${c.apellido}`;
-        ['inp_nombre', 'inp_apellido', 'inp_telefono'].forEach(id =>
-            document.getElementById(id).classList.add('bg-light')
-        );
+        const cliId = document.getElementById('cliente_id');
+        const inpN = document.getElementById('inp_nombre');
+        const inpA = document.getElementById('inp_apellido');
+        const inpT = document.getElementById('inp_telefono');
+
+        if (cliId) cliId.value = c.id;
+        if (inpN) inpN.value = c.nombre;
+        if (inpA) inpA.value = c.apellido;
+        if (inpT) inpT.value = c.telefono;
+        if (resultsDiv) resultsDiv.style.display = 'none';
+        if (searchInput) searchInput.value = `${c.nombre} ${c.apellido}`;
+
+        ['inp_nombre', 'inp_apellido', 'inp_telefono'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('bg-light');
+        });
     }
 
     // =========================================================
@@ -222,9 +231,21 @@ document.addEventListener('DOMContentLoaded', function () {
         const fecha = document.getElementById('inp_fecha').value;
         const clienteId = document.getElementById('cliente_id').value;
 
+        // Leer datos ingresados manualmente
+        const nombre = document.getElementById('inp_nombre') ? document.getElementById('inp_nombre').value.trim() : '';
+        const apellido = document.getElementById('inp_apellido') ? document.getElementById('inp_apellido').value.trim() : '';
+        const telefono = document.getElementById('inp_telefono') ? document.getElementById('inp_telefono').value.trim() : '';
+
         if (!fecha) {
             mostrarError('Seleccioná una fecha.');
             return;
+        }
+
+        if (CONFIG.mode === 'public') {
+            if (!nombre || !apellido || !telefono) {
+                mostrarError('Por favor, completá tu nombre, apellido y teléfono de WhatsApp.');
+                return;
+            }
         }
 
         irAPaso(3);
@@ -242,7 +263,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 fecha: fecha,
                 hora_preferida: document.getElementById('inp_hora_preferida').value || null,
                 cliente_id: clienteId || null,
-                servicios: servicios
+                servicios: servicios,
+                nombre: nombre,
+                apellido: apellido,
+                telefono: telefono
             })
         })
         .then(r => r.json())
