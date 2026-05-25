@@ -9,6 +9,7 @@
  */
 document.addEventListener('DOMContentLoaded', function () {
     const CONFIG = window.WIZARD_CONFIG;
+    if (!CONFIG.mode) CONFIG.mode = 'internal'; // Fallback defensivo
     const serviciosData = CONFIG.servicios;
     const profesionalesData = CONFIG.profesionales;
 
@@ -357,12 +358,14 @@ document.addEventListener('DOMContentLoaded', function () {
         const lista = esAlternativa ? opcionesData.alternativas : opcionesData.opciones;
         const opcionElegida = lista[idx];
 
+        const obsInput = document.getElementById('inp_observaciones');
         const payload = {
             fecha: document.getElementById('inp_fecha').value,
             cliente_id: document.getElementById('cliente_id').value || null,
             nombre: document.getElementById('inp_nombre').value,
             apellido: document.getElementById('inp_apellido').value,
             telefono: document.getElementById('inp_telefono').value,
+            observaciones: obsInput ? obsInput.value.trim() : '',
             opcion: opcionElegida,
             repro_id: CONFIG.preLoad ? CONFIG.preLoad.repro_id : null
         };
@@ -378,8 +381,34 @@ document.addEventListener('DOMContentLoaded', function () {
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                mostrarExito(data.message);
-                setTimeout(() => window.location.href = data.redirect, 1500);
+                if (CONFIG.mode === 'internal' && data.whatsapp_url) {
+                    const alertaExito = document.getElementById('alerta-exito');
+                    alertaExito.innerHTML = `
+                        <div class="d-flex flex-column align-items-center text-center p-3">
+                            <h5 class="fw-bold mb-2">🎉 ${data.message}</h5>
+                            <p class="mb-3">El turno se registró con éxito en el sistema.</p>
+                            <div class="d-flex gap-2">
+                                <a href="${data.whatsapp_url}" target="_blank" class="btn btn-success fw-bold d-flex align-items-center px-4">
+                                    <i class="bi bi-whatsapp me-2"></i> Enviar Comprobante por WhatsApp
+                                </a>
+                                <a href="${data.redirect}" class="btn btn-outline-dark fw-bold px-4">
+                                    Volver al Inicio
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                    alertaExito.classList.remove('d-none');
+                    
+                    const paso3 = document.getElementById('paso-3');
+                    if (paso3) paso3.classList.add('d-none');
+                    const stepIndicator = document.getElementById('step-indicator');
+                    if (stepIndicator) stepIndicator.classList.add('d-none');
+                    const alertaErr = document.getElementById('alerta-error');
+                    if (alertaErr) alertaErr.classList.add('d-none');
+                } else {
+                    mostrarExito(data.message);
+                    setTimeout(() => window.location.href = data.redirect, 1500);
+                }
             } else {
                 mostrarError(data.error || 'Error al confirmar la reserva.');
             }
@@ -472,8 +501,14 @@ document.addEventListener('DOMContentLoaded', function () {
         
         // 2. Seleccionar servicios
         p.servicios_ids.forEach(sid => toggleServicio(sid));
+
+        // 3. Cargar observaciones si existen
+        const obsInput = document.getElementById('inp_observaciones');
+        if (obsInput && p.observaciones) {
+            obsInput.value = p.observaciones;
+        }
         
-        // 3. Mostrar banner de información
+        // 4. Mostrar banner de información
         if (p.msg) {
             const banner = document.createElement('div');
             banner.className = 'alert alert-info py-2 mb-3 fw-bold';

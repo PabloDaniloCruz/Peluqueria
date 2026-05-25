@@ -15,11 +15,50 @@ def cancelar_turno(request, turno_id):
     turno = get_object_or_404(Turno, id=turno_id)
     if turno.estado == 'completado':
         messages.error(request, "No se puede cancelar un turno ya completado.")
-    else:
-        turno.estado = 'cancelado'
-        turno.save()
-        messages.success(request, f"Turno #{turno.id} cancelado correctamente.")
+        return redirect('dashboard')
+    
+    turno.estado = 'cancelado'
+    turno.save()
+    messages.success(request, f"Turno #{turno.id} cancelado correctamente.")
+
+    if request.GET.get('whatsapp') == 'true':
+        import urllib.parse
+        import re
+        from django.urls import reverse
+
+        cliente = turno.cliente
+        servicios_nombres = ", ".join([s.nombre for s in turno.servicios.all()])
+        fecha_hora_str = turno.fecha_hora.strftime('%d/%m a las %H:%M')
+
+        # Si el turno pertenece a una reserva, incluimos el link de autogestión
+        if turno.reserva:
+            url_gestion = request.build_absolute_uri(reverse('gestion_reserva_publica', args=[turno.reserva.token]))
+            mensaje_wa = (
+                f"¡Hola {cliente.nombre}! Te escribimos de Studio Salta. "
+                f"Tu turno del {fecha_hora_str}hs ({servicios_nombres}) ha sido cancelado. "
+                f"Podés volver a agendar o reprogramar desde este link: {url_gestion}"
+            )
+        else:
+            url_reserva = request.build_absolute_uri(reverse('reservar_publico'))
+            mensaje_wa = (
+                f"¡Hola {cliente.nombre}! Te escribimos de Studio Salta. "
+                f"Tu turno del {fecha_hora_str}hs ({servicios_nombres}) ha sido cancelado. "
+                f"Podés volver a agendar desde aquí: {url_reserva}"
+            )
+
+        mensaje_wa_encoded = urllib.parse.quote(mensaje_wa)
+
+        # Limpiar teléfono para wa.me (549 + 10 dígitos)
+        telefono_limpio = re.sub(r'\D', '', cliente.telefono)
+        if not telefono_limpio.startswith('54') and len(telefono_limpio) == 10:
+            telefono_limpio = '549' + telefono_limpio
+
+        whatsapp_url = f"https://wa.me/{telefono_limpio}?text={mensaje_wa_encoded}"
+        
+        return redirect(whatsapp_url)
+
     return redirect('dashboard')
+
 
 
 @login_required
@@ -128,6 +167,7 @@ def facturar_turno(request, turno_id):
         'turno': turno,
         'form': form,
         'total_sugerido': total_sugerido,
+        'total_sugerido_json': float(total_sugerido),
         'productos_venta': Producto.objects.filter(activo=True, es_para_venta=True),
         'productos_insumo': Producto.objects.filter(activo=True, es_insumo=True),
     }

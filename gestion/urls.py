@@ -7,10 +7,14 @@ urlpatterns = [
     path('clientes/nuevo/', views.crear_cliente, name='crear_cliente'),
     path('clientes/<int:pk>/editar/', views.editar_cliente, name='editar_cliente'),
     path('clientes/<int:pk>/eliminar/', views.eliminar_cliente, name='eliminar_cliente'),
+    path('clientes/<int:pk>/reactivar/', views.reactivar_cliente, name='reactivar_cliente'),
 
     path('reservas/nueva/', views.reservar_turno_interno, name='reservar_interno'),
     path('reservas/reprogramar/<int:pk>/', views.reprogramar_turno, name='reprogramar_turno'),
     path('reservas/publica/', views.reservar_turno_publico, name='reservar_publico'),
+    path('reservas/publica/confirmacion/<uuid:token>/', views.confirmacion_reserva_publica, name='confirmacion_reserva_publica'),
+    path('reservas/publica/gestion/<uuid:token>/', views.gestion_reserva_publica, name='gestion_reserva_publica'),
+    path('reservas/publica/gestion/<uuid:token>/cancelar/', views.cancelar_reserva_publica, name='cancelar_reserva_publica'),
 
     path('turno/<int:turno_id>/cancelar/', views.cancelar_turno, name='cancelar_turno'),
     path('turno/<int:turno_id>/iniciar/', views.iniciar_turno, name='iniciar_turno'),
@@ -31,12 +35,14 @@ urlpatterns = [
     path('profesionales/nuevo/', views.crear_profesional, name='crear_profesional'),
     path('profesionales/<int:prof_id>/editar/', views.editar_profesional, name='editar_profesional'),
     path('profesionales/<int:prof_id>/eliminar/', views.eliminar_profesional, name='eliminar_profesional'),
+    path('profesionales/<int:prof_id>/reactivar/', views.reactivar_profesional, name='reactivar_profesional'),
 
     # --- ABM Servicios (Admin) ---
     path('servicios/', views.lista_servicios, name='lista_servicios'),
     path('servicios/nuevo/', views.crear_servicio, name='crear_servicio'),
     path('servicios/<int:serv_id>/editar/', views.editar_servicio, name='editar_servicio'),
     path('servicios/<int:serv_id>/eliminar/', views.eliminar_servicio, name='eliminar_servicio'),
+    path('servicios/<int:serv_id>/reactivar/', views.reactivar_servicio, name='reactivar_servicio'),
     path('servicios/reordenar/', views.reordenar_servicios, name='reordenar_servicios'),
 
     # --- Inventario y Productos (Admin) ---
@@ -44,6 +50,7 @@ urlpatterns = [
     path('productos/nuevo/', views.crear_producto, name='crear_producto'),
     path('productos/<int:prod_id>/editar/', views.editar_producto, name='editar_producto'),
     path('productos/<int:prod_id>/eliminar/', views.eliminar_producto, name='eliminar_producto'),
+    path('productos/<int:prod_id>/reactivar/', views.reactivar_producto, name='reactivar_producto'),
     path('productos/<int:prod_id>/stock/<str:accion>/', views.actualizar_stock_rapido, name='actualizar_stock_rapido'),
     path('productos/ajuste_masivo/', views.ajuste_masivo_precios, name='ajuste_masivo_precios'),
 
@@ -52,6 +59,10 @@ urlpatterns = [
     path('estaciones/nueva/', views.gestionar_estacion, name='crear_estacion'),
     path('estaciones/<int:pk>/editar/', views.gestionar_estacion, name='editar_estacion'),
     path('estaciones/<int:pk>/eliminar/', views.eliminar_estacion, name='eliminar_estacion'),
+    path('estaciones/<int:pk>/reactivar/', views.reactivar_estacion, name='reactivar_estacion'),
+
+    # --- Reportes de Facturación (Admin) ---
+    path('reportes/facturacion/', views.facturacion, name='facturacion'),
 
     # --- Configuración del Salón (Admin) ---
     path('configuracion/', views.panel_configuracion, name='panel_configuracion'),

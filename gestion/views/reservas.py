@@ -36,11 +36,33 @@ def reservar_turno_publico(request):
         'dia_semana', 'hora_apertura', 'hora_cierre'
     ))
 
+    # Reprogramación pública
+    repro_id = request.GET.get('repro_id')
+    token_str = request.GET.get('token')
+    pre_load = None
+    if repro_id and token_str:
+        try:
+            reserva = Reserva.objects.get(token=token_str)
+            turno = Turno.objects.get(id=repro_id, reserva=reserva)
+            if turno.estado in ['pendiente', 'por_reprogramar']:
+                pre_load = {
+                    'cliente_id': turno.cliente.id,
+                    'nombre': turno.cliente.nombre,
+                    'apellido': turno.cliente.apellido,
+                    'telefono': turno.cliente.telefono,
+                    'servicios_ids': list(turno.servicios.values_list('id', flat=True)),
+                    'repro_id': turno.id,
+                    'msg': f"Reprogramando tu Turno de {turno.cliente.nombre}"
+                }
+        except (Reserva.DoesNotExist, Turno.DoesNotExist, ValueError):
+            pass
+
     contexto = {
         'servicios_json': json.dumps(servicios, default=str),
         'profesionales_json': json.dumps(profesionales),
         'horarios_json': json.dumps(horarios, default=str),
         'fecha_hoy': timezone.now().date().isoformat(),
+        'pre_load_json': json.dumps(pre_load) if pre_load else None,
     }
     return render(request, 'gestion/reserva_publica_wizard.html', contexto)
 
@@ -53,6 +75,8 @@ def reservar_turno_interno(request):
             data = json.loads(request.body)
         except json.JSONDecodeError:
             return JsonResponse({'error': 'Datos inválidos.'}, status=400)
+
+        observaciones = data.get('observaciones', '').strip()
 
         # Resolver o crear cliente
         cliente_id = data.get('cliente_id')
@@ -102,10 +126,11 @@ def reservar_turno_interno(request):
                     old_turno = Turno.objects.filter(id=repro_id).first()
                     if old_turno:
                         old_turno.estado = 'cancelado'
-                        old_turno.observaciones += f"\n[Cancelado por reprogramación el {timezone.now().strftime('%d/%m %H:%M')}]"
+                        old_obs = old_turno.observaciones or ''
+                        old_turno.observaciones = old_obs + f"\n[Cancelado por reprogramación el {timezone.now().strftime('%d/%m %H:%M')}]"
                         old_turno.save()
 
-                reserva = Reserva.objects.create(cliente=cliente)
+                reserva = Reserva.objects.create(cliente=cliente, observaciones=observaciones)
 
                 turnos_creados = 0
 
@@ -128,6 +153,7 @@ def reservar_turno_interno(request):
                         hora_fin_estimada=hora_fin_estimada,
                         reserva=reserva,
                         orden=idx,
+                        observaciones=observaciones,
                     )
                     nuevo_turno.clean()
                     nuevo_turno.save()
@@ -139,10 +165,32 @@ def reservar_turno_interno(request):
                     )
                     turnos_creados += 1
 
+            # Generar URL de WhatsApp para enviar el comprobante y token de autogestión al cliente
+            import urllib.parse
+            import re
+            
+            turnos_activos = reserva.turnos_reserva.exclude(estado='cancelado').order_by('orden')
+            detalles_texto = ""
+            for t in turnos_activos:
+                servicios_nombres = ", ".join([s.nombre for s in t.servicios.all()])
+                detalles_texto += f"\n- {t.fecha_hora.strftime('%d/%m a las %H:%M')}hs: {servicios_nombres} con {t.profesional.nombre}"
+            
+            url_gestion = request.build_absolute_uri(f'/reservas/publica/gestion/{reserva.token}/')
+            mensaje_wa = f"¡Hola {cliente.nombre}! Registramos tu turno en Studio Salta:{detalles_texto}\n\nPodés gestionar, reprogramar o cancelar tu reserva desde acá: {url_gestion}"
+            mensaje_wa_encoded = urllib.parse.quote(mensaje_wa)
+            
+            # Limpiar el número de teléfono del cliente para wa.me (solo dígitos, agregar 549 si tiene 10 dígitos)
+            telefono_limpio = re.sub(r'\D', '', cliente.telefono)
+            if not telefono_limpio.startswith('54') and len(telefono_limpio) == 10:
+                telefono_limpio = '549' + telefono_limpio
+            
+            whatsapp_url = f"https://wa.me/{telefono_limpio}?text={mensaje_wa_encoded}"
+
             return JsonResponse({
                 'success': True,
                 'message': f'Se registraron {turnos_creados} turno(s) para {cliente}.',
-                'redirect': '/'
+                'redirect': '/',
+                'whatsapp_url': whatsapp_url
             })
 
         except ValidationError as e:
@@ -193,6 +241,7 @@ def reprogramar_turno(request, pk):
         'telefono': turno.cliente.telefono,
         'servicios_ids': list(turno.servicios.values_list('id', flat=True)),
         'repro_id': turno.id,
+        'observaciones': turno.observaciones,
         'msg': f"Reprogramando Turno #{turno.id} de {turno.cliente}"
     }
 
@@ -309,6 +358,7 @@ def confirmar_reserva_publica(request):
     nombre = data.get('nombre', '').strip()
     apellido = data.get('apellido', '').strip()
     telefono = data.get('telefono', '').strip()
+    observaciones = data.get('observaciones', '').strip()
 
     if not all([nombre, apellido, telefono]):
         return JsonResponse({'error': 'Datos de contacto incompletos.'}, status=400)
@@ -337,6 +387,16 @@ def confirmar_reserva_publica(request):
             # 2. Bloqueamos el cliente para actualizaciones seguras de reservas
             cliente = Cliente.objects.select_for_update().get(id=cliente.id)
 
+            # Si estamos reprogramando, cancelamos el turno viejo para liberar espacio
+            repro_id = data.get('repro_id')
+            if repro_id:
+                old_turno = Turno.objects.filter(id=repro_id).first()
+                if old_turno:
+                    old_turno.estado = 'cancelado'
+                    old_obs = old_turno.observaciones or ''
+                    old_turno.observaciones = old_obs + f"\n[Cancelado por reprogramación del cliente el {timezone.now().strftime('%d/%m %H:%M')}]"
+                    old_turno.save()
+
             # 3. CONTROL DE SATURACIÓN FINAL: Límite estricto de 2 turnos a futuro
             turnos_pendientes = Turno.objects.filter(
                 cliente=cliente,
@@ -356,7 +416,7 @@ def confirmar_reserva_publica(request):
             _ = list(Profesional.objects.select_for_update().filter(id__in=prof_ids).order_by('id'))
             _ = list(Estacion.objects.select_for_update().filter(id__in=est_ids).order_by('id'))
 
-            reserva = Reserva.objects.create(cliente=cliente)
+            reserva = Reserva.objects.create(cliente=cliente, observaciones=observaciones)
             turnos_creados = 0
 
             for idx, bloque in enumerate(opcion['bloques']):
@@ -378,6 +438,7 @@ def confirmar_reserva_publica(request):
                     hora_fin_estimada=hora_fin_estimada,
                     reserva=reserva,
                     orden=idx,
+                    observaciones=observaciones,
                 )
                 nuevo_turno.clean()
                 nuevo_turno.save()
@@ -392,10 +453,95 @@ def confirmar_reserva_publica(request):
         return JsonResponse({
             'success': True,
             'message': f'¡Se reservaron con éxito tus {turnos_creados} servicio(s) en Studio Salta!',
-            'redirect': '/reservas/publica/'
+            'redirect': f'/reservas/publica/confirmacion/{reserva.token}/'
         })
 
     except ValidationError as e:
         return JsonResponse({'error': '; '.join(e.messages)}, status=400)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+
+def confirmacion_reserva_publica(request, token):
+    """Muestra la pantalla de éxito con botones dinámicos para WhatsApp, calendario y copiado."""
+    from django.conf import settings
+    reserva = get_object_or_404(Reserva, token=token)
+    turnos = reserva.turnos_reserva.exclude(estado='cancelado').order_by('orden')
+    
+    # Armar texto para WhatsApp
+    detalles_texto = ""
+    for t in turnos:
+        servicios_nombres = ", ".join([s.nombre for s in t.servicios.all()])
+        detalles_texto += f"\n- {t.fecha_hora.strftime('%d/%m a las %H:%M')}hs: {servicios_nombres} con {t.profesional.nombre}"
+    
+    # Enlace de autogestión
+    url_gestion = request.build_absolute_uri(f'/reservas/publica/gestion/{token}/')
+    
+    mensaje_wa = f"¡Hola! Agendé mi turno en Studio Salta:{detalles_texto}\n\nLink para gestionar o reprogramar mi turno: {url_gestion}"
+    import urllib.parse
+    mensaje_wa_encoded = urllib.parse.quote(mensaje_wa)
+    
+    # Obtener el teléfono del salón configurado en settings
+    salon_telefono = getattr(settings, 'SALON_WHATSAPP', '5493875551234')
+    whatsapp_url = f"https://wa.me/{salon_telefono}?text={mensaje_wa_encoded}"
+    
+    # Google Calendar link para el primer turno
+    google_calendar_url = None
+    if turnos.exists():
+        primer_turno = turnos.first()
+        start_time = primer_turno.fecha_hora.strftime('%Y%m%dT%H%M%SZ')
+        end_time = primer_turno.hora_fin_estimada.strftime('%Y%m%dT%H%M%SZ') if primer_turno.hora_fin_estimada else start_time
+        title = "Turno en Studio Salta"
+        details = f"Gestionar tu turno aquí: {url_gestion}"
+        google_calendar_url = f"https://www.google.com/calendar/render?action=TEMPLATE&text={urllib.parse.quote(title)}&dates={start_time}/{end_time}&details={urllib.parse.quote(details)}&sf=true&output=xml"
+
+    contexto = {
+        'reserva': reserva,
+        'turnos': turnos,
+        'url_gestion': url_gestion,
+        'whatsapp_url': whatsapp_url,
+        'google_calendar_url': google_calendar_url,
+    }
+    return render(request, 'gestion/confirmacion_publica.html', contexto)
+
+
+def gestion_reserva_publica(request, token):
+    """Portal de autogestión pública para el cliente ver, reprogramar o cancelar sus turnos."""
+    reserva = get_object_or_404(Reserva, token=token)
+    turnos = reserva.turnos_reserva.order_by('orden')
+    
+    # Si todos están cancelados, se informa adecuadamente en la plantilla
+    turnos_activos = turnos.exclude(estado='cancelado')
+    
+    contexto = {
+        'reserva': reserva,
+        'turnos': turnos,
+        'tiene_activos': turnos_activos.exists(),
+    }
+    return render(request, 'gestion/gestion_publica.html', contexto)
+
+
+def cancelar_reserva_publica(request, token):
+    """Permite al cliente cancelar todos los turnos de su reserva de forma segura con confirmación."""
+    reserva = get_object_or_404(Reserva, token=token)
+    turnos_activos = reserva.turnos_reserva.exclude(estado__in=['cancelado', 'completado'])
+    
+    if not turnos_activos.exists():
+        messages.warning(request, "No tenés turnos activos para cancelar en esta reserva.")
+        return redirect('gestion_reserva_publica', token=token)
+        
+    if request.method == 'POST':
+        with transaction.atomic():
+            for t in turnos_activos:
+                t.estado = 'cancelado'
+                old_obs = t.observaciones or ''
+                t.observaciones = old_obs + f"\n[Cancelado por el cliente desde la web el {timezone.now().strftime('%d/%m %H:%M')}]"
+                t.save()
+            messages.success(request, "Tus turnos han sido cancelados con éxito.")
+        return redirect('gestion_reserva_publica', token=token)
+        
+    contexto = {
+        'reserva': reserva,
+        'turnos': turnos_activos,
+    }
+    return render(request, 'gestion/cancelar_publica.html', contexto)

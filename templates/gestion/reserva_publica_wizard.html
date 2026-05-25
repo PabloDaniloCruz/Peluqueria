@@ -76,6 +76,13 @@
                             </div>
                         </div>
 
+                        <div class="row mb-4">
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label fw-bold">📝 Observaciones o Pedidos Especiales (Opcional)</label>
+                                <textarea id="inp_observaciones" class="form-control form-control-lg border-secondary-subtle" rows="2" placeholder="Ej: si tenés alergias a algún producto, preferencias de corte, etc..."></textarea>
+                            </div>
+                        </div>
+
                         <h5 class="text-muted mb-3 border-bottom pb-2">3. Elegí uno o más servicios</h5>
                         <div id="lista-servicios" class="row row-cols-1 row-cols-md-2 g-3 mb-4">
                             <!-- Renderizado por JS -->
@@ -235,7 +242,7 @@
             reservar: "{% url 'confirmar_reserva_publica' %}",
         },
         csrfToken: "{{ csrf_token }}",
-        preLoad: null,
+        preLoad: JSON.parse('{{ pre_load_json|default:"null"|safe }}'),
         mode: 'public'
     };
 </script>

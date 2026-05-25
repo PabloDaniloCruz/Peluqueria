@@ -83,6 +83,13 @@
                             </div>
                         </div>
 
+                        <div class="row mb-4">
+                            <div class="col-md-12 mb-3">
+                                <label class="form-label fw-bold">📝 Observaciones / Notas Especiales (Opcional)</label>
+                                <textarea id="inp_observaciones" class="form-control" rows="2" placeholder="Notas sobre alergias, preferencias o detalles especiales del turno..."></textarea>
+                            </div>
+                        </div>
+
                         <h5 class="text-muted mb-3 border-bottom pb-2">Seleccioná los servicios</h5>
                         <div id="lista-servicios" class="row row-cols-1 row-cols-md-2 g-3">
                             <!-- Renderizado por JS -->
@@ -193,6 +200,7 @@
         },
         csrfToken: "{{ csrf_token }}",
         preLoad: JSON.parse('{{ pre_load_json|default:"null"|safe }}'),
+        mode: 'internal'
     };
 
 </script>

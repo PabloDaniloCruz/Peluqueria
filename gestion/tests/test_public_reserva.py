@@ -5,7 +5,7 @@ from datetime import timedelta, time as time_type, datetime
 from decimal import Decimal
 
 from ..models import (
-    Cliente, Profesional, Servicio, Estacion, HorarioAtencion, Turno, DetalleTurno
+    Cliente, Profesional, Servicio, Estacion, HorarioAtencion, Turno, DetalleTurno, Reserva
 )
 
 class TestReservaPublicaWizard(TestCase):
@@ -184,3 +184,87 @@ class TestReservaPublicaWizard(TestCase):
         self.assertEqual(turnos.count(), 2)
         self.assertIsNotNone(turnos[0].reserva)
         self.assertEqual(turnos[0].reserva, turnos[1].reserva)
+
+    def test_confirmar_reserva_publica_with_observaciones(self):
+        """Valida que la reserva pública guarde las observaciones tanto en Reserva como en Turno."""
+        fecha_test = (timezone.now() + timedelta(days=2)).date().isoformat()
+        
+        opcion_elegida = {
+            "duracion_total": 30,
+            "inicio": "12:00",
+            "fin": "12:30",
+            "bloques": [
+                {
+                    "servicio_id": self.servicio_corte.id,
+                    "servicio_nombre": "Corte Premium",
+                    "profesional_id": self.estilista.id,
+                    "profesional_nombre": "Danilo Cruz",
+                    "estacion_id": self.estacion1.id,
+                    "estacion_nombre": "Puesto 1",
+                    "inicio": "12:00",
+                    "fin": "12:30",
+                    "duracion": 30
+                }
+            ]
+        }
+        
+        payload = {
+            "nombre": "Ana",
+            "apellido": "Martínez",
+            "telefono": "3879998877",
+            "fecha": fecha_test,
+            "observaciones": "Alergia a productos fuertes y prefiere café",
+            "opcion": opcion_elegida
+        }
+        
+        response = self.client.post(
+            '/api/reservas/publica/confirmar/',
+            data=json.dumps(payload),
+            content_type='application/json'
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        
+        # Verificar en base de datos
+        cliente = Cliente.objects.get(telefono="3879998877")
+        turnos = Turno.objects.filter(cliente=cliente)
+        self.assertEqual(turnos.count(), 1)
+        
+        turno = turnos.first()
+        self.assertEqual(turno.observaciones, "Alergia a productos fuertes y prefiere café")
+        self.assertIsNotNone(turno.reserva)
+        self.assertEqual(turno.reserva.observaciones, "Alergia a productos fuertes y prefiere café")
+
+    def test_gestion_y_cancelacion_publica_success(self):
+        """Valida el portal de gestión y la cancelación lógica segura por token."""
+        # 1. Crear una reserva con token y turnos
+        cliente = Cliente.objects.create(nombre="Pedro", apellido="Sánchez", telefono="3871112233")
+        reserva = Reserva.objects.create(cliente=cliente)
+        
+        manana = timezone.now() + timedelta(days=1)
+        turno = Turno.objects.create(
+            cliente=cliente, profesional=self.estilista, estacion=self.estacion1,
+            fecha_hora=manana, hora_fin_estimada=manana + timedelta(minutes=30),
+            reserva=reserva
+        )
+        
+        # 2. Acceder al portal de gestión
+        response = self.client.get(f'/reservas/publica/gestion/{reserva.token}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "gestion/gestion_publica.html")
+        self.assertContains(response, "Pedro Sánchez")
+        
+        # 3. Acceder a la confirmación de cancelación
+        response = self.client.get(f'/reservas/publica/gestion/{reserva.token}/cancelar/')
+        self.assertEqual(response.status_code, 200)
+        self.assertTemplateUsed(response, "gestion/cancelar_publica.html")
+        
+        # 4. Confirmar la cancelación (POST)
+        response = self.client.post(f'/reservas/publica/gestion/{reserva.token}/cancelar/')
+        self.assertEqual(response.status_code, 302) # Redirecciona de vuelta al portal
+        
+        # 5. Verificar que el estado cambió a cancelado
+        turno.refresh_from_db()
+        self.assertEqual(turno.estado, "cancelado")
+        self.assertIn("Cancelado por el cliente", turno.observaciones)

@@ -55,7 +55,7 @@
 {# CONTADORES (solo vista día)                                  #}
 {# ============================================================ #}
 {% if vista == 'dia' %}
-<div class="row row-cols-2 row-cols-md-4 g-3 mb-4">
+<div class="row row-cols-2 row-cols-md-5 g-3 mb-4">
     <div class="col">
         <a href="?fecha={{ fecha_filtro|date:'Y-m-d' }}&vista=dia" class="text-decoration-none">
             <div class="card border-0 bg-light text-center py-2 {% if not estado_filtro %}border border-secondary border-2{% endif %}">
@@ -85,6 +85,14 @@
             <div class="card border-0 text-center py-2 {% if estado_filtro == 'completado' %}bg-success text-white{% else %}bg-light{% endif %}">
                 <div class="fs-3 fw-bold">{{ contadores.completado }}</div>
                 <div class="{% if estado_filtro == 'completado' %}text-white-50{% else %}text-muted{% endif %} small">Completados</div>
+            </div>
+        </a>
+    </div>
+    <div class="col">
+        <a href="?fecha={{ fecha_filtro|date:'Y-m-d' }}&vista=dia&estado=cancelado{% if profesional_filtro %}&profesional={{ profesional_filtro }}{% endif %}" class="text-decoration-none">
+            <div class="card border-0 text-center py-2 {% if estado_filtro == 'cancelado' %}bg-secondary text-white{% else %}bg-light{% endif %}">
+                <div class="fs-3 fw-bold">{{ contadores.cancelado }}</div>
+                <div class="{% if estado_filtro == 'cancelado' %}text-white-50{% else %}text-muted{% endif %} small">Cancelados</div>
             </div>
         </a>
     </div>
@@ -146,9 +154,7 @@
             <select name="estado" class="form-select form-select-sm">
                 <option value="">Todos</option>
                 {% for value, label in estados %}
-                    {% if value != 'cancelado' %}
-                        <option value="{{ value }}" {% if estado_filtro == value %}selected{% endif %}>{{ label }}</option>
-                    {% endif %}
+                    <option value="{{ value }}" {% if estado_filtro == value %}selected{% endif %}>{{ label }}</option>
                 {% endfor %}
             </select>
         </div>

@@ -13,7 +13,14 @@ def es_admin(user):
 @user_passes_test(es_admin)
 def lista_productos(request):
     query = request.GET.get('q', '')
-    productos = Producto.objects.filter(activo=True).order_by('nombre')
+    estado = request.GET.get('estado', 'activos')
+    
+    productos = Producto.objects.all().order_by('nombre')
+    
+    if estado == 'activos':
+        productos = productos.filter(activo=True)
+    elif estado == 'inactivos':
+        productos = productos.filter(activo=False)
     
     if query:
         from django.db.models import Q
@@ -25,7 +32,8 @@ def lista_productos(request):
         
     return render(request, 'gestion/productos.html', {
         'productos': productos,
-        'query': query
+        'query': query,
+        'estado': estado,
     })
 
 
@@ -63,6 +71,15 @@ def eliminar_producto(request, prod_id):
     producto.activo = False
     producto.save()
     messages.success(request, f'Producto {producto.nombre} dado de baja.')
+    return redirect('lista_productos')
+
+
+@user_passes_test(es_admin)
+def reactivar_producto(request, prod_id):
+    producto = get_object_or_404(Producto, id=prod_id)
+    producto.activo = True
+    producto.save()
+    messages.success(request, f'Producto {producto.nombre} reactivado.')
     return redirect('lista_productos')
 
 

@@ -57,11 +57,14 @@ class ClienteForm(forms.ModelForm):
             'email': forms.EmailInput(attrs={'class': 'form-control', 'placeholder': 'correo@ejemplo.com'}),
         }
 
-    # Validamos que el email sea único (si es un campo obligatorio en tu modelo)
     def clean_email(self):
         email = self.cleaned_data.get('email')
-        if email and Cliente.objects.filter(email=email).exists():
-            raise forms.ValidationError("Este correo electrónico ya pertenece a un cliente registrado.")
+        if email:
+            qs = Cliente.objects.filter(email=email)
+            if self.instance.pk:
+                qs = qs.exclude(pk=self.instance.pk)
+            if qs.exists():
+                raise forms.ValidationError("Este correo electrónico ya pertenece a un cliente registrado.")
         return email
 
 class FacturacionForm(forms.Form):

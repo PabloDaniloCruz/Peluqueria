@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5 mb-5 d-flex justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <!-- Tarjeta de Confirmación Premium con Gradiente Superior -->
+        <div class="card shadow-2xl border-0 overflow-hidden rounded-4 text-center text-dark bg-white" style="transition: transform 0.3s ease;">
+            <div class="py-4" style="background: linear-gradient(135deg, #111 0%, #333 100%);">
+                <div class="display-1 text-success mb-2 animate-bounce">
+                    <i class="bi bi-check-circle-fill"></i>
+                </div>
+                <h2 class="fw-bold text-white mb-1">¡Turno Reservado!</h2>
+                <p class="text-white-50 mb-0">Tu reserva se procesó correctamente</p>
+            </div>
+            
+            <div class="card-body p-4 p-md-5">
+                <!-- Info del Cliente -->
+                <div class="mb-4">
+                    <h5 class="fw-bold text-secondary mb-1">Titular de la reserva</h5>
+                    <p class="fs-5 fw-semibold text-dark mb-0">{{ reserva.cliente.nombre }} {{ reserva.cliente.apellido }}</p>
+                    <p class="text-muted small"><i class="bi bi-telephone-fill"></i> {{ reserva.cliente.telefono }}</p>
+                </div>
+                
+                <!-- Detalles de los Turnos -->
+                <div class="bg-light rounded-4 p-3 mb-4 text-start">
+                    <h6 class="fw-bold text-secondary mb-3 pb-2 border-bottom"><i class="bi bi-calendar-check"></i> Detalle de tus Servicios:</h6>
+                    {% for t in turnos %}
+                    <div class="d-flex justify-content-between align-items-start mb-3 last:mb-0">
+                        <div>
+                            <span class="fw-bold text-dark d-block">
+                                {% for s in t.servicios.all %}{{ s.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                            </span>
+                            <small class="text-muted d-block">
+                                <i class="bi bi-person-fill"></i> {{ t.profesional.nombre }} {{ t.profesional.apellido }} 
+                                <span class="mx-1">|</span> 
+                                <i class="bi bi-geo-alt-fill"></i> {{ t.estacion.nombre }}
+                            </small>
+                        </div>
+                        <div class="text-end">
+                            <span class="badge bg-dark rounded-pill">{{ t.fecha_hora|date:"d/m/Y" }}</span>
+                            <span class="d-block fw-bold text-success mt-1">{{ t.fecha_hora|date:"H:i" }} hs</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <!-- NOTA DE OBSERVACIONES (Si existe) -->
+                {% if reserva.observaciones %}
+                <div class="mb-4 text-start border-start border-3 border-dark ps-3 py-1">
+                    <small class="text-muted fw-bold d-block">Tus notas / observaciones:</small>
+                    <p class="text-muted italic mb-0">"{{ reserva.observaciones }}"</p>
+                </div>
+                {% endif %}
+                
+                <hr class="my-4">
+
+                <!-- BOTONES DE ACCIÓN PRINCIPALES -->
+                <h5 class="fw-bold mb-3 text-secondary">¿Cómo querés guardar tu comprobante?</h5>
+                
+                <div class="d-grid gap-3 mb-4">
+                    <!-- WhatsApp Click-to-Chat (Verde Vibrante con Gradiente) -->
+                    <a href="{{ whatsapp_url }}" target="_blank" class="btn btn-lg border-0 text-white rounded-3 shadow-sm d-flex align-items-center justify-content-center py-3" style="background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); transition: all 0.3s ease;">
+                        <i class="bi bi-whatsapp fs-4 me-2"></i>
+                        <span class="fw-bold">Guardar Turno en mi WhatsApp</span>
+                    </a>
+                    
+                    <div class="row g-2">
+                        <!-- Copiar Link Mágico -->
+                        <div class="col-sm-6">
+                            <button id="btn-copiar" data-url="{{ url_gestion }}" class="btn btn-outline-dark btn-lg w-100 py-3 rounded-3 d-flex align-items-center justify-content-center text-nowrap">
+                                <i class="bi bi-clipboard me-2"></i>
+                                <span id="text-copiar" class="fw-semibold">Copiar Link de Gestión</span>
+                            </button>
+                        </div>
+                        <!-- Añadir a Google Calendar -->
+                        <div class="col-sm-6">
+                            {% if google_calendar_url %}
+                            <a href="{{ google_calendar_url }}" target="_blank" class="btn btn-outline-secondary btn-lg w-100 py-3 rounded-3 d-flex align-items-center justify-content-center text-nowrap">
+                                <i class="bi bi-google me-2"></i>
+                                <span class="fw-semibold">Google Calendar</span>
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-warning border-0 rounded-4 text-start d-flex align-items-start p-3">
+                    <i class="bi bi-exclamation-triangle-fill text-warning fs-4 me-3 mt-1"></i>
+                    <div>
+                        <small class="fw-bold d-block text-dark mb-1">¡Importante!</small>
+                        <small class="text-muted d-block">
+                            Con el <strong>Link de Gestión</strong> vas a poder reprogramar o cancelar tus turnos en cualquier momento sin registrarte. Guardalo bien.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Estilos y micro-animaciones específicas -->
+<style>
+    .animate-bounce {
+        animation: bounce 1s infinite alternate;
+    }
+    @keyframes bounce {
+        from { transform: translateY(0); }
+        to { transform: translateY(-8px); }
+    }
+    #btn-copiar {
+        transition: all 0.2s ease;
+    }
+    #btn-copiar.copied {
+        background-color: #198754;
+        color: white;
+        border-color: #198754;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const btnCopiar = document.getElementById('btn-copiar');
+        const textCopiar = document.getElementById('text-copiar');
+        
+        btnCopiar.addEventListener('click', function() {
+            const url = this.getAttribute('data-url');
+            navigator.clipboard.writeText(url).then(function() {
+                // Éxito de copiado - Animación y Cambio de Texto
+                btnCopiar.classList.add('copied');
+                btnCopiar.innerHTML = '<i class="bi bi-check-lg me-2"></i><span class="fw-bold">¡Copiado!</span>';
+                
+                setTimeout(function() {
+                    btnCopiar.classList.remove('copied');
+                    btnCopiar.innerHTML = '<i class="bi bi-clipboard me-2"></i><span class="fw-semibold">Copiar Link de Gestión</span>';
+                }, 2500);
+            });
+        });
+    });
+</script>
+{% endblock %}

@@ -71,14 +71,13 @@ def dashboard_recepcion(request):
                 Q(cliente__telefono__icontains=cliente_q)
             )
         if sin_facturar:
-            qs = qs.filter(venta__isnull=True).exclude(estado='completado')
+            qs = qs.filter(venta__isnull=True).exclude(estado__in=['completado', 'cancelado'])
         return qs
 
     # --- Queryset vista diaria ---
     base_dia = (
         Turno.objects
         .filter(fecha_hora__date=fecha_filtro)
-        .exclude(estado='cancelado')
         .select_related('cliente', 'profesional', 'estacion', 'reserva')
         .prefetch_related('servicios')
         .order_by('fecha_hora')
@@ -86,19 +85,19 @@ def dashboard_recepcion(request):
     turnos = aplicar_filtros(base_dia)
 
     # --- Contadores del día (sin filtros de contenido) ---
-    todos_del_dia = Turno.objects.filter(fecha_hora__date=fecha_filtro).exclude(estado='cancelado')
+    todos_del_dia = Turno.objects.filter(fecha_hora__date=fecha_filtro)
     contadores = {
         'total':      todos_del_dia.count(),
         'pendiente':  todos_del_dia.filter(estado='pendiente').count(),
         'en_curso':   todos_del_dia.filter(estado='en_curso').count(),
         'completado': todos_del_dia.filter(estado='completado').count(),
+        'cancelado':  todos_del_dia.filter(estado='cancelado').count(),
     }
 
     # --- Datos para vista semanal ---
     turnos_semana_raw = (
         Turno.objects
         .filter(fecha_hora__date__gte=lunes, fecha_hora__date__lte=domingo)
-        .exclude(estado='cancelado')
         .select_related('cliente', 'profesional', 'estacion', 'reserva')
         .prefetch_related('servicios')
         .order_by('fecha_hora')

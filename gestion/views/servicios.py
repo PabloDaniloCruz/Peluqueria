@@ -16,7 +16,14 @@ def es_admin(user):
 @user_passes_test(es_admin)
 def lista_servicios(request):
     query = request.GET.get('q', '')
-    servicios = Servicio.objects.filter(activo=True).order_by('orden_sugerido', 'nombre')
+    estado = request.GET.get('estado', 'activos')
+    
+    servicios = Servicio.objects.all().order_by('orden_sugerido', 'nombre')
+    
+    if estado == 'activos':
+        servicios = servicios.filter(activo=True)
+    elif estado == 'inactivos':
+        servicios = servicios.filter(activo=False)
     
     if query:
         from django.db.models import Q
@@ -27,7 +34,8 @@ def lista_servicios(request):
         
     return render(request, 'gestion/servicios.html', {
         'servicios': servicios,
-        'query': query
+        'query': query,
+        'estado': estado,
     })
 
 
@@ -86,4 +94,13 @@ def eliminar_servicio(request, serv_id):
     servicio.activo = False
     servicio.save()
     messages.success(request, f'Servicio {servicio.nombre} dado de baja.')
+    return redirect('lista_servicios')
+
+
+@user_passes_test(es_admin)
+def reactivar_servicio(request, serv_id):
+    servicio = get_object_or_404(Servicio, id=serv_id)
+    servicio.activo = True
+    servicio.save()
+    messages.success(request, f'Servicio {servicio.nombre} reactivado.')
     return redirect('lista_servicios')

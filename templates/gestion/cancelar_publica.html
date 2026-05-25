@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-5 mb-5 d-flex justify-content-center">
+    <div class="col-md-8 col-lg-6">
+        <!-- Tarjeta de Cancelación Segura -->
+        <div class="card shadow-2xl border-0 rounded-4 overflow-hidden bg-white text-dark text-center">
+            
+            <!-- Encabezado de Advertencia Red/Orange Gradient -->
+            <div class="py-4 text-white" style="background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%);">
+                <div class="display-3 mb-2 animate-pulse">
+                    <i class="bi bi-exclamation-triangle-fill"></i>
+                </div>
+                <h3 class="fw-bold mb-0">¿Estás seguro de cancelar?</h3>
+                <p class="text-white-50 small mb-0">Esta acción no se puede deshacer</p>
+            </div>
+            
+            <div class="card-body p-4 p-md-5">
+                <p class="fs-5 text-dark mb-4">
+                    Estás por cancelar tus turnos en <strong>Studio Salta</strong> para los siguientes servicios:
+                </p>
+                
+                <!-- Lista de Turnos a Cancelar -->
+                <div class="bg-light rounded-4 p-3 mb-4 text-start">
+                    {% for t in turnos %}
+                    <div class="d-flex justify-content-between align-items-center mb-2 last:mb-0 pb-2 border-bottom border-light-subtle last:border-0">
+                        <div>
+                            <span class="fw-bold text-dark d-block">
+                                {% for s in t.servicios.all %}{{ s.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                            </span>
+                            <small class="text-muted"><i class="bi bi-person"></i> {{ t.profesional.nombre }}</small>
+                        </div>
+                        <span class="fw-bold text-danger">{{ t.fecha_hora|date:"d/m H:i" }}hs</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <p class="text-muted small mb-4">
+                    Al confirmar la cancelación, los horarios quedarán liberados inmediatamente para otros clientes del salón.
+                </p>
+
+                <!-- BOTONES DE CONFIRMACIÓN -->
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="d-grid gap-2">
+                        <!-- Confirmar Cancelar (Rojo Intenso) -->
+                        <button type="submit" class="btn btn-danger btn-lg py-3 rounded-3 fw-bold shadow-sm">
+                            <i class="bi bi-trash3-fill me-2"></i> Sí, Cancelar mis Turnos
+                        </button>
+                        
+                        <!-- Volver / Mantener Turnos (Contorno Negro) -->
+                        <a href="{% url 'gestion_reserva_publica' reserva.token %}" class="btn btn-outline-dark btn-lg py-3 rounded-3 fw-semibold mt-2">
+                            No, Volver al Portal de Gestión
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Animación de Advertencia -->
+<style>
+    .animate-pulse {
+        animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+        100% { transform: scale(1); }
+    }
+</style>
+{% endblock %}

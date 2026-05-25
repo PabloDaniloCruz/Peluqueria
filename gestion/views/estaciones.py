@@ -22,7 +22,14 @@ def es_admin(user):
 @user_passes_test(es_admin)
 def lista_estaciones(request):
     query = request.GET.get('q', '')
+    estado = request.GET.get('estado', 'activos')
+    
     estaciones = Estacion.objects.all().order_by('nombre')
+    
+    if estado == 'activos':
+        estaciones = estaciones.filter(activa=True)
+    elif estado == 'inactivos':
+        estaciones = estaciones.filter(activa=False)
     
     if query:
         from django.db.models import Q
@@ -33,7 +40,8 @@ def lista_estaciones(request):
         
     return render(request, 'gestion/estaciones.html', {
         'estaciones': estaciones,
-        'query': query
+        'query': query,
+        'estado': estado,
     })
 
 
@@ -66,9 +74,17 @@ def gestionar_estacion(request, pk=None):
 @user_passes_test(es_admin)
 def eliminar_estacion(request, pk):
     estacion = get_object_or_404(Estacion, pk=pk)
-    if request.method == 'POST':
-        nombre = estacion.nombre
-        estacion.delete()
-        messages.success(request, f"Estación '{nombre}' eliminada.")
-        return redirect('lista_estaciones')
-    return render(request, 'gestion/estacion_confirm_delete.html', {'estacion': estacion})
+    estacion.activa = False
+    estacion.save()
+    messages.success(request, f'Estación {estacion.nombre} dada de baja.')
+    return redirect('lista_estaciones')
+
+
+@login_required
+@user_passes_test(es_admin)
+def reactivar_estacion(request, pk):
+    estacion = get_object_or_404(Estacion, pk=pk)
+    estacion.activa = True
+    estacion.save()
+    messages.success(request, f'Estación {estacion.nombre} reactivada.')
+    return redirect('lista_estaciones')

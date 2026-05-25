@@ -46,7 +46,7 @@
             {% if turno.estado == 'pendiente' %}
                 <a href="{% url 'iniciar_turno' turno.id %}" class="btn btn-primary btn-sm">▶️ Iniciar</a>
             {% endif %}
-            {% if turno.estado == 'por_reprogramar' %}
+            {% if turno.estado == 'pendiente' or turno.estado == 'por_reprogramar' %}
                 <a href="{% url 'reprogramar_turno' turno.id %}" class="btn btn-info btn-sm fw-bold">🔄 Reprogramar</a>
             {% endif %}
             {% if turno.estado == 'en_curso' or turno.estado == 'completado' %}

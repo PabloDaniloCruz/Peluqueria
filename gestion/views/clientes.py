@@ -25,7 +25,14 @@ def crear_cliente(request):
 @login_required
 def lista_clientes(request):
     query = request.GET.get('q', '')
+    estado = request.GET.get('estado', 'activos')
+    
     clientes_bd = Cliente.objects.all().order_by('apellido', 'nombre')
+    
+    if estado == 'activos':
+        clientes_bd = clientes_bd.filter(activo=True)
+    elif estado == 'inactivos':
+        clientes_bd = clientes_bd.filter(activo=False)
     
     if query:
         clientes_bd = clientes_bd.filter(
@@ -37,7 +44,8 @@ def lista_clientes(request):
     
     contexto = {
         'clientes': clientes_bd,
-        'query': query
+        'query': query,
+        'estado': estado,
     }
     return render(request, 'gestion/clientes.html', contexto)
 
@@ -64,11 +72,19 @@ def editar_cliente(request, pk):
 @login_required
 def eliminar_cliente(request, pk):
     cliente = get_object_or_404(Cliente, pk=pk)
-    # Podríamos verificar si tiene turnos antes de borrar, o simplemente borrar en cascada
-    cliente.delete()
-    messages.success(request, 'Cliente eliminado del sistema.')
+    cliente.activo = False
+    cliente.save()
+    messages.success(request, f'Cliente {cliente.nombre} {cliente.apellido} dado de baja.')
     return redirect('lista_clientes')
 
+
+@login_required
+def reactivar_cliente(request, pk):
+    cliente = get_object_or_404(Cliente, pk=pk)
+    cliente.activo = True
+    cliente.save()
+    messages.success(request, f'Cliente {cliente.nombre} {cliente.apellido} reactivado.')
+    return redirect('lista_clientes')
 
 
 @login_required
@@ -94,7 +110,8 @@ def api_buscar_clientes(request):
     clientes = Cliente.objects.filter(
         Q(nombre__icontains=q) | 
         Q(apellido__icontains=q) | 
-        Q(telefono__icontains=q)
+        Q(telefono__icontains=q),
+        activo=True
     )[:10]
     
     results = []

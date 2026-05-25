@@ -14,7 +14,14 @@ def es_admin(user):
 @user_passes_test(es_admin)
 def lista_profesionales(request):
     query = request.GET.get('q', '')
-    profesionales = Profesional.objects.filter(activo=True).order_by('apellido', 'nombre')
+    estado = request.GET.get('estado', 'activos')
+    
+    profesionales = Profesional.objects.all().order_by('apellido', 'nombre')
+    
+    if estado == 'activos':
+        profesionales = profesionales.filter(activo=True)
+    elif estado == 'inactivos':
+        profesionales = profesionales.filter(activo=False)
     
     if query:
         from django.db.models import Q
@@ -27,7 +34,8 @@ def lista_profesionales(request):
         
     return render(request, 'gestion/profesionales.html', {
         'profesionales': profesionales,
-        'query': query
+        'query': query,
+        'estado': estado,
     })
 
 
@@ -110,4 +118,13 @@ def eliminar_profesional(request, prof_id):
     prof.activo = False
     prof.save()
     messages.success(request, f'Profesional {prof.nombre} {prof.apellido} dado de baja.')
+    return redirect('lista_profesionales')
+
+
+@user_passes_test(es_admin)
+def reactivar_profesional(request, prof_id):
+    prof = get_object_or_404(Profesional, id=prof_id)
+    prof.activo = True
+    prof.save()
+    messages.success(request, f'Profesional {prof.nombre} {prof.apellido} reactivado.')
     return redirect('lista_profesionales')

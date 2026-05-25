@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -20,12 +21,20 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-1-keg0l_eh!%o$d89*ht135p1y(&n*(2@su(zr%hcr1oj1##6c'
+# En producción, definí DJANGO_SECRET_KEY como variable de entorno.
+# pythonanywhere: Settings → Environment variables (o en el wsgi)
+SECRET_KEY = os.environ.get(
+    'DJANGO_SECRET_KEY',
+    'django-insecure-1-keg0l_eh!%o$d89*ht135p1y(&n*(2@su(zr%hcr1oj1##6c'
+)
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
-ALLOWED_HOSTS = ['danilo2004.pythonanywhere.com', '127.0.0.1', 'localhost', '*']
+ALLOWED_HOSTS = os.environ.get(
+    'DJANGO_ALLOWED_HOSTS',
+    'danilo2004.pythonanywhere.com,127.0.0.1,localhost'
+).split(',')
 
 
 # Application definition
@@ -136,3 +145,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
+
+# Teléfono oficial del salón para recibir las confirmaciones y consultas de turnos
+# Debe ingresarse en formato internacional completo sin espacios ni signos + (ej: 5493875551234)
+SALON_WHATSAPP = '5493876310898'

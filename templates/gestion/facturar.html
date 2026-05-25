@@ -102,7 +102,7 @@
 {% compress js %}
 <script src="{% static 'gestion/js/ventas.js' %}"></script>
 <script>
-    const precioBase = parseFloat("{{ total_sugerido }}".replace(',', '.'));
+    const precioBase = {{ total_sugerido_json }};
     const totalInputId = "{{ form.total.id_for_label }}";
     
     inicializarVentas({

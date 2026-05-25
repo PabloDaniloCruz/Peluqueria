@@ -1,0 +1,797 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- ============================================================ -->
+    <!-- HEADER                                                        -->
+    <!-- ============================================================ -->
+    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-2 pb-3 mb-4 border-bottom border-2">
+        <div>
+            <h1 class="h3 fw-bold mb-1">
+                <i class="bi bi-bar-chart-line-fill me-2 text-primary"></i>Facturación
+            </h1>
+            <p class="text-muted small mb-0">Visualizá los ingresos del salón, rendimiento por profesional y servicios más vendidos.</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary btn-sm" onclick="window.print()">
+                <i class="bi bi-printer"></i> Imprimir
+            </button>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- FILTROS                                                       -->
+    <!-- ============================================================ -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body py-3">
+            <form method="GET" action="{% url 'facturacion' %}" class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-muted mb-1">
+                        <i class="bi bi-calendar-check me-1"></i>Desde
+                    </label>
+                    <input type="date" name="desde" class="form-control form-control-sm" value="{{ desde }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-muted mb-1">
+                        <i class="bi bi-calendar-check me-1"></i>Hasta
+                    </label>
+                    <input type="date" name="hasta" class="form-control form-control-sm" value="{{ hasta }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label small fw-semibold text-muted mb-1">
+                        <i class="bi bi-person-badge me-1"></i>Profesional
+                    </label>
+                    <select name="profesional" class="form-select form-select-sm">
+                        <option value="">Todos los profesionales</option>
+                        {% for p in profesionales %}
+                        <option value="{{ p.id }}" {% if profesional_id|stringformat:"s" == p.id|stringformat:"s" %}selected{% endif %}>
+                            {{ p.nombre }} {{ p.apellido }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex gap-2">
+                    <button type="submit" class="btn btn-dark btn-sm flex-fill">
+                        <i class="bi bi-funnel"></i> Filtrar
+                    </button>
+                    <a href="{% url 'facturacion' %}" class="btn btn-outline-secondary btn-sm flex-fill">
+                        <i class="bi bi-arrow-counterclockwise"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TARJETAS DE RESUMEN                                           -->
+    <!-- ============================================================ -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%);">
+                <div class="card-body d-flex flex-column justify-content-between">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="badge bg-white text-primary bg-opacity-25 rounded-pill">Total</span>
+                        <i class="bi bi-cash-stack text-white opacity-50 fs-4"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-white fw-bold mb-0">${{ total_facturado|floatformat:0 }}</h2>
+                        <p class="text-white-50 small mb-0 mt-1">Facturado en el período</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #198754 0%, #157347 100%);">
+                <div class="card-body d-flex flex-column justify-content-between">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="badge bg-white text-success bg-opacity-25 rounded-pill">{{ cantidad_ventas }}</span>
+                        <i class="bi bi-receipt text-white opacity-50 fs-4"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-white fw-bold mb-0">{{ cantidad_ventas }}</h2>
+                        <p class="text-white-50 small mb-0 mt-1">Ventas realizadas</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%);">
+                <div class="card-body d-flex flex-column justify-content-between">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="badge bg-white text-purple bg-opacity-25 rounded-pill">Prom.</span>
+                        <i class="bi bi-graph-up-arrow text-white opacity-50 fs-4"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-white fw-bold mb-0">${{ ticket_promedio|floatformat:0 }}</h2>
+                        <p class="text-white-50 small mb-0 mt-1">Ticket promedio</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm h-100" style="background: linear-gradient(135deg, #dc3545 0%, #b82d3b 100%);">
+                <div class="card-body d-flex flex-column justify-content-between">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <span class="badge bg-white text-danger bg-opacity-25 rounded-pill">Comis.</span>
+                        <i class="bi bi-percent text-white opacity-50 fs-4"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-white fw-bold mb-0">${{ total_comisiones|floatformat:0 }}</h2>
+                        <p class="text-white-50 small mb-0 mt-1">En comisiones</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TABS: Resumen / Detalle                                      -->
+    <!-- ============================================================ -->
+    <ul class="nav nav-tabs mb-4" id="facturaTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active fw-semibold" id="resumen-tab" data-bs-toggle="tab" data-bs-target="#resumen" type="button" role="tab">
+                <i class="bi bi-bar-chart me-1"></i> Resumen
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link fw-semibold" id="detalle-tab" data-bs-toggle="tab" data-bs-target="#detalle" type="button" role="tab">
+                <i class="bi bi-table me-1"></i> Detalle de Ventas
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content" id="facturaTabsContent">
+
+        <!-- ======================================================== -->
+        <!-- TAB: RESUMEN                                              -->
+        <!-- ======================================================== -->
+        <div class="tab-pane fade show active" id="resumen" role="tabpanel">
+
+            <!-- Fila 1: Evolución + Métodos de pago -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-7">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center py-3">
+                            <h5 class="mb-0 fw-bold">
+                                <i class="bi bi-graph-up me-2 text-primary"></i>Evolución de Ingresos
+                            </h5>
+                            <span class="badge bg-light text-muted rounded-pill">{{ evolucion|length }} meses</span>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="evolucionChart" height="200"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-5">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center py-3">
+                            <h5 class="mb-0 fw-bold">
+                                <i class="bi bi-pie-chart me-2 text-primary"></i>Métodos de Pago
+                            </h5>
+                        </div>
+                        <div class="card-body d-flex align-items-center">
+                            <div class="row w-100 align-items-center">
+                                <div class="col-6">
+                                    <canvas id="metodosChart" height="180"></canvas>
+                                </div>
+                                <div class="col-6">
+                                    <div class="legend-metodos"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fila 2: Rendimiento por Profesional (solo gráfico) -->
+            <div class="row g-3 mb-4">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center py-3">
+                            <h5 class="mb-0 fw-bold">
+                                <i class="bi bi-people me-2 text-primary"></i>Rendimiento por Profesional
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-7">
+                                    <canvas id="profChart" height="240"></canvas>
+                                </div>
+                                <div class="col-lg-5">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover align-middle mb-0">
+                                            <thead class="table-light small text-uppercase text-muted">
+                                                <tr>
+                                                    <th>Profesional</th>
+                                                    <th class="text-center">Turnos</th>
+                                                    <th class="text-end">Facturado</th>
+                                                    <th class="text-end">Comisión</th>
+                                                    <th class="text-end">%</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for pd in profesionales_data %}
+                                                <tr>
+                                                    <td class="fw-medium">{{ pd.profesional.nombre }} {{ pd.profesional.apellido }}</td>
+                                                    <td class="text-center">{{ pd.turnos }}</td>
+                                                    <td class="text-end fw-semibold">${{ pd.total_venta|floatformat:0 }}</td>
+                                                    <td class="text-end text-danger">${{ pd.comision|floatformat:0 }}</td>
+                                                    <td class="text-end">
+                                                        <div class="d-flex align-items-center justify-content-end gap-2">
+                                                            <small class="text-muted">{{ pd.porcentaje }}%</small>
+                                                            <div class="progress" style="width: 40px; height: 4px;">
+                                                                <div class="progress-bar bg-primary" style="width: {{ pd.porcentaje }}%"></div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                                {% empty %}
+                                                <tr>
+                                                    <td colspan="5" class="text-center py-3 text-muted small">Sin datos</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Fila 3: Servicios más vendidos -->
+            <div class="row g-3 mb-4">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center py-3">
+                            <h5 class="mb-0 fw-bold">
+                                <i class="bi bi-trophy me-2 text-primary"></i>Servicios Más Vendidos
+                            </h5>
+                            <span class="badge bg-light text-muted rounded-pill">Top {{ servicios_top|length }}</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-lg-7">
+                                    <canvas id="serviciosChart" height="240"></canvas>
+                                </div>
+                                <div class="col-lg-5">
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-hover align-middle mb-0">
+                                            <thead class="table-light small text-uppercase text-muted">
+                                                <tr>
+                                                    <th style="width: 30px;">#</th>
+                                                    <th>Servicio</th>
+                                                    <th class="text-center">Veces</th>
+                                                    <th class="text-end">Total</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for s in servicios_top %}
+                                                <tr>
+                                                    <td class="text-muted">{{ forloop.counter }}</td>
+                                                    <td class="fw-medium">{{ s.nombre }}</td>
+                                                    <td class="text-center">{{ s.cantidad }}</td>
+                                                    <td class="text-end fw-semibold">${{ s.total|floatformat:0 }}</td>
+                                                </tr>
+                                                {% empty %}
+                                                <tr>
+                                                    <td colspan="4" class="text-center py-3 text-muted small">Sin datos</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /tab Resumen -->
+
+        <!-- ======================================================== -->
+        <!-- TAB: DETALLE                                              -->
+        <!-- ======================================================== -->
+        <div class="tab-pane fade" id="detalle" role="tabpanel">
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center py-3">
+                    <h5 class="mb-0 fw-bold">
+                        <i class="bi bi-receipt me-2 text-primary"></i>Todas las Ventas
+                    </h5>
+                    <span class="badge bg-light text-muted rounded-pill">{{ detalle_ventas|length }} ventas</span>
+                </div>
+                <div class="card-body p-0">
+                    <!-- Filtros de la tabla -->
+                    <div class="p-3 border-bottom bg-light bg-opacity-50">
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-5">
+                                <label class="form-label small fw-semibold text-muted mb-1">
+                                    <i class="bi bi-search me-1"></i>Buscar
+                                </label>
+                                <input type="text" id="filtro-busqueda" class="form-control form-control-sm" placeholder="Buscá por cliente, profesional, servicio...">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label small fw-semibold text-muted mb-1">
+                                    <i class="bi bi-person-badge me-1"></i>Profesional
+                                </label>
+                                <select id="filtro-profesional" class="form-select form-select-sm">
+                                    <option value="">Todos</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold text-muted mb-1">
+                                    <i class="bi bi-credit-card me-1"></i>Pago
+                                </label>
+                                <select id="filtro-pago" class="form-select form-select-sm">
+                                    <option value="">Todos</option>
+                                    {% for mp in metodos_pago %}
+                                    <option value="{{ mp.metodo }}">{{ mp.metodo }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold text-muted mb-1">&nbsp;</label>
+                                <button id="limpiar-filtros" class="btn btn-outline-secondary btn-sm w-100">
+                                    <i class="bi bi-x-circle"></i> Limpiar
+                                </button>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <small class="text-muted" id="contador-filas"></small>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0" id="tabla-detalle">
+                            <thead class="table-light small text-uppercase text-muted">
+                                <tr>
+                                    <th class="ps-3">#</th>
+                                    <th>Fecha</th>
+                                    <th>Cliente</th>
+                                    <th>Profesional</th>
+                                    <th>Servicios / Productos</th>
+                                    <th>Método de Pago</th>
+                                    <th class="text-end">Total</th>
+                                    <th class="text-end pe-3">Comisión</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for v in detalle_ventas %}
+                                <tr>
+                                    <td class="ps-3 text-muted">{{ v.id }}</td>
+                                    <td class="text-nowrap">{{ v.fecha_venta|date:"d/m/Y H:i" }}</td>
+                                    <td class="fw-medium">
+                                        {% if v.cliente %}
+                                            {{ v.cliente.nombre }} {{ v.cliente.apellido }}
+                                        {% elif v.turno and v.turno.cliente %}
+                                            {{ v.turno.cliente.nombre }} {{ v.turno.cliente.apellido }}
+                                        {% else %}
+                                            <span class="text-muted fst-italic">Venta libre</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if v.turno and v.turno.profesional %}
+                                            {{ v.turno.profesional.nombre }} {{ v.turno.profesional.apellido }}
+                                        {% else %}
+                                            <span class="text-muted">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% with servicios=v.turno.detalleturno_set.all %}
+                                        {% if servicios %}
+                                            {% for d in servicios %}
+                                                <span class="badge bg-light text-dark border me-1">{{ d.servicio.nombre }}</span>
+                                            {% endfor %}
+                                        {% endif %}
+                                        {% endwith %}
+                                        {% with productos=v.detalles_productos.all %}
+                                        {% if productos %}
+                                            {% for d in productos %}
+                                                <span class="badge bg-info bg-opacity-10 text-info border border-info me-1">{{ d.producto.nombre }} x{{ d.cantidad }}</span>
+                                            {% endfor %}
+                                        {% endif %}
+                                        {% endwith %}
+                                        {% if not v.turno.detalleturno_set.all and not v.detalles_productos.all %}
+                                            <span class="text-muted small">—</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary bg-opacity-10 text-secondary border border-secondary">
+                                            {{ v.get_metodo_pago_display }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end fw-semibold">${{ v.total|floatformat:0 }}</td>
+                                    <td class="text-end pe-3 text-danger">${{ v.comision|floatformat:0 }}</td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="8" class="text-center py-5 text-muted">
+                                        <i class="bi bi-inbox display-6 d-block mb-3 opacity-50"></i>
+                                        <h6>No hay ventas en el período seleccionado</h6>
+                                        <p class="small">Probá ampliando el rango de fechas.</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                            <tfoot class="table-light fw-bold">
+                                <tr>
+                                    <td colspan="6" class="ps-3 text-end">Totales</td>
+                                    <td class="text-end">${{ total_facturado|floatformat:0 }}</td>
+                                    <td class="text-end pe-3 text-danger">${{ total_comisiones|floatformat:0 }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /tab Detalle -->
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    @media print {
+        .sidebar, .navbar, .btn, form, .offcanvas, .nav-tabs, #detalle { display: none !important; }
+        .card { box-shadow: none !important; border: 1px solid #dee2e6 !important; break-inside: avoid; }
+        .container-fluid { padding: 0 !important; }
+        main { flex: 0 0 100% !important; max-width: 100% !important; }
+        #resumen.tab-pane { display: block !important; opacity: 1 !important; visibility: visible !important; }
+    }
+    .bg-purple { background-color: #6f42c1; }
+    .text-purple { color: #6f42c1; }
+    .legend-metodos .legend-item { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; font-size: 0.8rem; }
+    .legend-metodos .legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    #tabla-detalle td { vertical-align: middle; font-size: 0.85rem; }
+    #tabla-detalle th { font-size: 0.72rem; letter-spacing: 0.5px; white-space: nowrap; }
+    .nav-tabs .nav-link { color: #6c757d; }
+    .nav-tabs .nav-link.active { color: #0d6efd; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const gridColor = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
+    const textColor = isDark ? '#adb5bd' : '#6c757d';
+
+    Chart.defaults.font.family = "'Inter', system-ui, -apple-system, sans-serif";
+    Chart.defaults.font.size = 11;
+
+    // ──────────────── Evolución Mensual ────────────────
+    const evolucionCtx = document.getElementById('evolucionChart');
+    if (evolucionCtx) {
+        new Chart(evolucionCtx, {
+            type: 'bar',
+            data: {
+                labels: {{ chart_evolucion_labels|safe }},
+                datasets: [{
+                    label: 'Total ($)',
+                    data: {{ chart_evolucion_total|safe }},
+                    backgroundColor: 'rgba(13, 110, 253, 0.7)',
+                    borderColor: '#0d6efd',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    order: 2,
+                }, {
+                    label: 'Ventas',
+                    data: {{ chart_evolucion_cantidad|safe }},
+                    type: 'line',
+                    borderColor: '#198754',
+                    backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#198754',
+                    pointRadius: 4,
+                    yAxisID: 'y1',
+                    order: 1,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { intersect: false, mode: 'index' },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { boxWidth: 12, padding: 12, color: textColor }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                if (ctx.dataset.label === 'Total ($)') return '$ ' + ctx.parsed.y.toLocaleString('es-AR');
+                                return ctx.parsed.y + ' ventas';
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: {
+                            color: textColor,
+                            callback: function(v) { return '$' + v.toLocaleString('es-AR'); }
+                        }
+                    },
+                    y1: {
+                        beginAtZero: true,
+                        position: 'right',
+                        grid: { display: false },
+                        ticks: { color: textColor }
+                    },
+                    x: {
+                        grid: { display: false },
+                        ticks: { color: textColor }
+                    }
+                }
+            }
+        });
+    }
+
+    // ──────────────── Métodos de Pago ────────────────
+    const metodosCtx = document.getElementById('metodosChart');
+    if (metodosCtx) {
+        const metLabels = {{ chart_metodos_labels|safe }};
+        const metData = {{ chart_metodos_data|safe }};
+        const metColors = {{ chart_metodos_colors|safe }};
+        const totalMet = metData.reduce((a, b) => a + b, 0);
+
+        new Chart(metodosCtx, {
+            type: 'doughnut',
+            data: {
+                labels: metLabels,
+                datasets: [{
+                    data: metData,
+                    backgroundColor: metColors,
+                    borderWidth: 2,
+                    borderColor: '#fff',
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '65%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                const pct = ((ctx.parsed / totalMet) * 100).toFixed(1);
+                                return '$ ' + ctx.parsed.toLocaleString('es-AR') + ' (' + pct + '%)';
+                            }
+                        }
+                    }
+                }
+            },
+            plugins: [{
+                afterDraw: function(chart) {
+                    const w = chart.width, h = chart.height;
+                    if (totalMet === 0) return;
+                    const ctx = chart.ctx;
+                    ctx.save();
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.font = 'bold 18px Inter, sans-serif';
+                    ctx.fillStyle = isDark ? '#fff' : '#212529';
+                    ctx.fillText('$' + (totalMet / 1000).toFixed(0) + 'k', w / 2, h / 2 - 6);
+                    ctx.font = '11px Inter, sans-serif';
+                    ctx.fillStyle = textColor;
+                    ctx.fillText('Total', w / 2, h / 2 + 16);
+                    ctx.restore();
+                }
+            }]
+        });
+
+        const legendContainer = document.querySelector('.legend-metodos');
+        if (legendContainer) {
+            metLabels.forEach(function(label, i) {
+                const pct = ((metData[i] / totalMet) * 100).toFixed(1);
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+                item.innerHTML = '<span class="legend-dot" style="background:' + metColors[i] + '"></span> ' +
+                    '<span class="text-muted">' + label + '</span> ' +
+                    '<span class="fw-semibold ms-auto">$' + (metData[i] / 1000).toFixed(0) + 'k</span> ' +
+                    '<small class="text-muted">(' + pct + '%)</small>';
+                legendContainer.appendChild(item);
+            });
+        }
+    }
+
+    // ──────────────── Profesionales ────────────────
+    const profCtx = document.getElementById('profChart');
+    if (profCtx) {
+        const profLabels = {{ chart_prof_labels|safe }};
+        const profTotal = {{ chart_prof_total|safe }};
+        const profComision = {{ chart_prof_comision|safe }};
+
+        new Chart(profCtx, {
+            type: 'bar',
+            data: {
+                labels: profLabels,
+                datasets: [{
+                    label: 'Facturado',
+                    data: profTotal,
+                    backgroundColor: 'rgba(13, 110, 253, 0.7)',
+                    borderRadius: 4,
+                }, {
+                    label: 'Comisión',
+                    data: profComision,
+                    backgroundColor: 'rgba(220, 53, 69, 0.7)',
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                interaction: { intersect: false, mode: 'index' },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: { boxWidth: 12, padding: 12, color: textColor }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                return ctx.dataset.label + ': $' + ctx.parsed.x.toLocaleString('es-AR');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: {
+                            color: textColor,
+                            callback: function(v) { return '$' + v.toLocaleString('es-AR'); }
+                        }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: textColor }
+                    }
+                }
+            }
+        });
+    }
+
+    // ──────────────── Filtros de tabla detalle ────────────────
+    const tabla = document.getElementById('tabla-detalle');
+    const buscarInput = document.getElementById('filtro-busqueda');
+    const filtroProf = document.getElementById('filtro-profesional');
+    const filtroPago = document.getElementById('filtro-pago');
+    const limpiarBtn = document.getElementById('limpiar-filtros');
+    const contador = document.getElementById('contador-filas');
+
+    function filtrarTabla() {
+        if (!tabla) return;
+        const termino = (buscarInput.value || '').toLowerCase().trim();
+        const profVal = (filtroProf.value || '').toLowerCase().trim();
+        const pagoVal = (filtroPago.value || '').toLowerCase().trim();
+        const filas = tabla.querySelectorAll('tbody tr');
+        let visibles = 0;
+
+        filas.forEach(function(row) {
+            // Saltar fila de "sin datos"
+            if (row.querySelector('td[colspan]')) return;
+
+            const textoFila = row.textContent.toLowerCase();
+            const profCelda = (row.cells[3]?.textContent || '').toLowerCase().trim();
+            const pagoCelda = (row.cells[5]?.textContent || '').toLowerCase().trim();
+
+            const pasaBusqueda = !termino || textoFila.includes(termino);
+            const pasaProf = !profVal || profCelda.includes(profVal);
+            const pasaPago = !pagoVal || pagoCelda.includes(pagoVal);
+
+            if (pasaBusqueda && pasaProf && pasaPago) {
+                row.style.display = '';
+                visibles++;
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        if (contador) {
+            const total = filas.length - (tabla.querySelector('tbody tr td[colspan]') ? 1 : 0);
+            contador.textContent = 'Mostrando ' + visibles + ' de ' + total + ' ventas';
+        }
+    }
+
+    // Poblar select de profesional desde la tabla (evita duplicados)
+    function poblarSelectProfesional() {
+        if (!tabla || !filtroProf) return;
+        const nombres = new Set();
+        tabla.querySelectorAll('tbody tr').forEach(function(row) {
+            if (row.querySelector('td[colspan]')) return;
+            const nombre = (row.cells[3]?.textContent || '').trim();
+            if (nombre && nombre !== '—') nombres.add(nombre);
+        });
+        const sorted = Array.from(nombres).sort();
+        sorted.forEach(function(n) {
+            const opt = document.createElement('option');
+            opt.value = n;
+            opt.textContent = n;
+            filtroProf.appendChild(opt);
+        });
+    }
+
+    if (buscarInput) buscarInput.addEventListener('input', filtrarTabla);
+    if (filtroProf) filtroProf.addEventListener('change', filtrarTabla);
+    if (filtroPago) filtroPago.addEventListener('change', filtrarTabla);
+    if (limpiarBtn) limpiarBtn.addEventListener('click', function() {
+        if (buscarInput) buscarInput.value = '';
+        if (filtroProf) filtroProf.value = '';
+        if (filtroPago) filtroPago.value = '';
+        filtrarTabla();
+    });
+
+    // Inicializar
+    poblarSelectProfesional();
+    filtrarTabla();
+
+    // ──────────────── Servicios ────────────────
+    const serviciosCtx = document.getElementById('serviciosChart');
+    if (serviciosCtx) {
+        const servLabels = {{ chart_servicios_labels|safe }};
+        const servData = {{ chart_servicios_data|safe }};
+
+        const colors = servData.map(function(v, i) {
+            const intensity = Math.max(0.3, 1 - (i / servData.length) * 0.6);
+            return 'rgba(111, 66, 193, ' + intensity + ')';
+        });
+
+        new Chart(serviciosCtx, {
+            type: 'bar',
+            data: {
+                labels: servLabels,
+                datasets: [{
+                    label: 'Recaudado',
+                    data: servData,
+                    backgroundColor: colors,
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                indexAxis: 'y',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                return '$' + ctx.parsed.x.toLocaleString('es-AR');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        beginAtZero: true,
+                        grid: { color: gridColor },
+                        ticks: {
+                            color: textColor,
+                            callback: function(v) { return '$' + v.toLocaleString('es-AR'); }
+                        }
+                    },
+                    y: {
+                        grid: { display: false },
+                        ticks: { color: textColor, font: { size: 10 } }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

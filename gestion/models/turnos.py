@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.core.exceptions import ValidationError
@@ -48,6 +49,7 @@ class Reserva(models.Model):
     )
     fecha_creacion = models.DateTimeField("fecha de creación", auto_now_add=True)
     observaciones = models.TextField("observaciones", blank=True)
+    token = models.UUIDField("token único", default=uuid.uuid4, unique=True, editable=False)
 
     class Meta:
         verbose_name = "Reserva"

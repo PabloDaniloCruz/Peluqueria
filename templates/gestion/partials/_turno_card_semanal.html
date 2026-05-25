@@ -1,7 +1,8 @@
 <div class="card mb-1 border-0 shadow-sm
     {% if turno.estado == 'pendiente' %}border-start border-primary border-3
     {% elif turno.estado == 'en_curso' %}border-start border-warning border-3
-    {% elif turno.estado == 'completado' %}border-start border-success border-3{% endif %}"
+    {% elif turno.estado == 'completado' %}border-start border-success border-3
+    {% elif turno.estado == 'cancelado' %}border-start border-secondary border-3{% endif %}"
     style="font-size: 0.78em;">
     <div class="card-body p-2">
         <div class="fw-bold text-truncate">
@@ -9,7 +10,8 @@
             <span class="badge
                 {% if turno.estado == 'pendiente' %}bg-primary
                 {% elif turno.estado == 'en_curso' %}bg-warning text-dark
-                {% elif turno.estado == 'completado' %}bg-success{% endif %}"
+                {% elif turno.estado == 'completado' %}bg-success
+                {% elif turno.estado == 'cancelado' %}bg-secondary{% endif %}"
                 style="font-size: 0.7em;">
                 {{ turno.get_estado_display }}
             </span>
@@ -32,6 +34,9 @@
             {% endif %}
             {% if turno.estado == 'pendiente' %}
                 <a href="{% url 'iniciar_turno' turno.id %}" class="btn btn-primary btn-sm py-0 px-1" style="font-size:0.7em;">▶</a>
+            {% endif %}
+            {% if turno.estado == 'pendiente' or turno.estado == 'por_reprogramar' %}
+                <a href="{% url 'reprogramar_turno' turno.id %}" class="btn btn-info btn-sm py-0 px-1" style="font-size:0.7em;" title="Reprogramar">🔄</a>
             {% endif %}
         </div>
     </div>
