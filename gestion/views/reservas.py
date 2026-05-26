@@ -173,7 +173,8 @@ def reservar_turno_interno(request):
             detalles_texto = ""
             for t in turnos_activos:
                 servicios_nombres = ", ".join([s.nombre for s in t.servicios.all()])
-                detalles_texto += f"\n- {t.fecha_hora.strftime('%d/%m a las %H:%M')}hs: {servicios_nombres} con {t.profesional.nombre}"
+                fecha_local = timezone.localtime(t.fecha_hora)
+                detalles_texto += f"\n- {fecha_local.strftime('%d/%m a las %H:%M')}hs: {servicios_nombres} con {t.profesional.nombre}"
             
             url_gestion = request.build_absolute_uri(f'/reservas/publica/gestion/{reserva.token}/')
             mensaje_wa = f"¡Hola {cliente.nombre}! Registramos tu turno en Studio Salta:{detalles_texto}\n\nPodés gestionar, reprogramar o cancelar tu reserva desde acá: {url_gestion}"
@@ -472,7 +473,8 @@ def confirmacion_reserva_publica(request, token):
     detalles_texto = ""
     for t in turnos:
         servicios_nombres = ", ".join([s.nombre for s in t.servicios.all()])
-        detalles_texto += f"\n- {t.fecha_hora.strftime('%d/%m a las %H:%M')}hs: {servicios_nombres} con {t.profesional.nombre}"
+        fecha_local = timezone.localtime(t.fecha_hora)
+        detalles_texto += f"\n- {fecha_local.strftime('%d/%m a las %H:%M')}hs: {servicios_nombres} con {t.profesional.nombre}"
     
     # Enlace de autogestión
     url_gestion = request.build_absolute_uri(f'/reservas/publica/gestion/{token}/')

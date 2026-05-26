@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.core.exceptions import ValidationError
+from django.utils import timezone
 
 from ..models import Turno, Venta, Producto, DetalleVentaProducto, ConsumoInsumo
 from ..forms import FacturacionForm
@@ -28,7 +29,7 @@ def cancelar_turno(request, turno_id):
 
         cliente = turno.cliente
         servicios_nombres = ", ".join([s.nombre for s in turno.servicios.all()])
-        fecha_hora_str = turno.fecha_hora.strftime('%d/%m a las %H:%M')
+        fecha_hora_str = timezone.localtime(turno.fecha_hora).strftime('%d/%m a las %H:%M')
 
         # Si el turno pertenece a una reserva, incluimos el link de autogestión
         if turno.reserva:

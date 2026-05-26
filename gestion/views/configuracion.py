@@ -1,6 +1,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from django.contrib.auth.decorators import user_passes_test
+from django.utils import timezone
 from ..models import HorarioAtencion, CierreExcepcional
 from ..forms import HorarioAtencionForm, CierreExcepcionalForm
 
@@ -119,10 +120,11 @@ def gestionar_cierre(request, pk=None):
     # Preparar links de WhatsApp para los afectados
     turnos_repro = []
     for t in afectados:
+        fecha_local = timezone.localtime(t.fecha_hora)
         msg = (
             f"Hola {t.cliente.nombre}, te contactamos de Studio Salta para avisarte que por "
             f"{request.POST.get('descripcion') or 'motivos de fuerza mayor'}, el salón estará cerrado "
-            f"el {t.fecha_hora.strftime('%d/%m')}. Tu turno de las {t.fecha_hora.strftime('%H:%M')} "
+            f"el {fecha_local.strftime('%d/%m')}. Tu turno de las {fecha_local.strftime('%H:%M')} "
             f"debe ser reprogramado. ¿Qué otro horario te queda cómodo?"
         )
         t.wa_link = f"https://wa.me/{t.cliente.telefono}?text={quote(msg)}"
