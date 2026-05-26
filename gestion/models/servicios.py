@@ -11,10 +11,10 @@ class Servicio(models.Model):
         "precio sugerido", max_digits=10, decimal_places=2,
         validators=[MinValueValidator(0)]
     )
-    duracion_estimada = models.PositiveIntegerField(
-        "duración estimada (minutos)",
-        help_text="Duración estimada del servicio en minutos"
-    )
+    @property
+    def duracion_estimada(self):
+        """Calcula la duración sumando los tiempos de todas las etapas."""
+        return sum(etapa.duracion for etapa in self.etapas.all())
     orden_sugerido = models.PositiveSmallIntegerField(
         "orden sugerido", default=0,
         help_text="Orden predefinido de la peluquería para secuencias de servicios (menor = primero)"
@@ -28,6 +28,41 @@ class Servicio(models.Model):
 
     def __str__(self):
         return self.nombre
+
+
+class EtapaServicio(models.Model):
+    """Fases de un servicio para evaluación asimétrica en el algoritmo RCPSP."""
+    
+    TIPO_ESTACION_CHOICES = [
+        ('estacion', 'Estación de Trabajo (Silla)'),
+        ('lavacabeza', 'Lavacabezas'),
+        ('ninguna', 'Ninguna / Sala de Espera'),
+    ]
+
+    servicio = models.ForeignKey(Servicio, on_delete=models.CASCADE, related_name='etapas', verbose_name="Servicio")
+    orden = models.PositiveIntegerField("orden de ejecución", help_text="Ej: 1 (Primero), 2 (Segundo)")
+    nombre = models.CharField("nombre de la etapa", max_length=100, help_text="Ej: Aplicación, Exposición, Lavado")
+    
+    duracion = models.PositiveIntegerField(
+        "duración (minutos)", 
+        help_text="Debe ser múltiplo de 5 para encajar en el motor de slots."
+    )
+    
+    tipo_estacion = models.CharField("estación requerida", max_length=20, choices=TIPO_ESTACION_CHOICES)
+    requiere_profesional = models.BooleanField(
+        "¿Requiere al profesional?", 
+        default=True,
+        help_text="Desmarcar si es un tiempo de espera (ej: esperando que actúe la tintura) donde el profesional se libera."
+    )
+
+    class Meta:
+        verbose_name = "Etapa de Servicio"
+        verbose_name_plural = "Etapas de Servicio"
+        ordering = ['orden']
+        unique_together = ['servicio', 'orden']
+
+    def __str__(self):
+        return f"{self.servicio.nombre} - Paso {self.orden}: {self.nombre}"
 
 
 class Estacion(models.Model):

@@ -2,8 +2,9 @@ from django import forms
 from django.contrib.auth.models import User
 from .models import (
     Cliente, Profesional, Servicio, FichaTecnica, Producto, Venta, 
-    HorarioAtencion, CierreExcepcional
+    HorarioAtencion, CierreExcepcional, EtapaServicio
 )
+from django.forms import inlineformset_factory
 
 
 class ReservaAlPasoForm(forms.Form):
@@ -173,13 +174,27 @@ class ProfesionalForm(forms.ModelForm):
 class ServicioForm(forms.ModelForm):
     class Meta:
         model = Servicio
-        fields = ['nombre', 'descripcion', 'precio_sugerido', 'duracion_estimada']
+        fields = ['nombre', 'descripcion', 'precio_sugerido']
         widgets = {
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
             'descripcion': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
             'precio_sugerido': forms.NumberInput(attrs={'class': 'form-control', 'step': '0.01'}),
-            'duracion_estimada': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
         }
+
+EtapaServicioFormSet = inlineformset_factory(
+    Servicio,
+    EtapaServicio,
+    fields=['orden', 'nombre', 'duracion', 'tipo_estacion', 'requiere_profesional'],
+    extra=1,
+    can_delete=True,
+    widgets={
+        'orden': forms.NumberInput(attrs={'class': 'form-control', 'min': 1}),
+        'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: Lavado'}),
+        'duracion': forms.NumberInput(attrs={'class': 'form-control', 'min': 5, 'step': 5}),
+        'tipo_estacion': forms.Select(attrs={'class': 'form-select'}),
+        'requiere_profesional': forms.CheckboxInput(attrs={'class': 'form-check-input'})
+    }
+)
 
 class ProductoForm(forms.ModelForm):
     class Meta:

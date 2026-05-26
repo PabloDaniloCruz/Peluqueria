@@ -159,8 +159,10 @@ def calcular_disponibilidad(fecha, cliente_id, servicios_request, incluir_altern
                                    lambda t: t.cliente_id)
         cliente_mask |= cli_masks.get(int(cliente_id), 0)
 
-    # Estaciones activas
-    estaciones_ids = list(Estacion.objects.filter(activa=True).values_list("id", flat=True))
+    # Estaciones activas agrupadas por tipo
+    estaciones_by_tipo = {}
+    for est in Estacion.objects.filter(activa=True):
+        estaciones_by_tipo.setdefault(est.tipo, []).append(est.id)
 
     # Resolver servicios y candidatos de profesional
     servicios_info = []
@@ -177,9 +179,28 @@ def calcular_disponibilidad(fecha, cliente_id, servicios_request, incluir_altern
                 .values_list("profesional_id", flat=True)
             )
 
+        etapas = list(servicio.etapas.all().order_by('orden'))
+        if not etapas:
+            # Fallback robusto si un servicio no tiene etapas
+            etapas_info = [{
+                "n_slots": _slots_en_rango(servicio.duracion_estimada),
+                "tipo_estacion": "estacion",
+                "requiere_profesional": True,
+                "nombre": servicio.nombre
+            }]
+        else:
+            etapas_info = [{
+                "n_slots": _slots_en_rango(e.duracion),
+                "tipo_estacion": e.tipo_estacion,
+                "requiere_profesional": e.requiere_profesional,
+                "nombre": e.nombre
+            } for e in etapas]
+
         servicios_info.append({
             "servicio": servicio,
-            "n_slots": _slots_en_rango(servicio.duracion_estimada),
+            "n_slots": sum(e["n_slots"] for e in etapas_info),
+            "etapas": etapas_info,
+            "duracion_estimada": sum(e["n_slots"] for e in etapas_info) * SLOT_MINUTES,
             "candidatos": candidatos,
             "prof_fijo": prof_id,
         })
@@ -210,7 +231,7 @@ def calcular_disponibilidad(fecha, cliente_id, servicios_request, incluir_altern
     # --- Búsqueda de secuencias ---
     opciones = _buscar_secuencias(
         servicios_info, total_slots, total_duracion_slots, min_slot,
-        prof_masks, est_masks, cliente_mask, estaciones_ids,
+        prof_masks, est_masks, cliente_mask, estaciones_by_tipo,
         hora_apertura, pref_slot=pref_slot
     )
 
@@ -229,13 +250,15 @@ def calcular_disponibilidad(fecha, cliente_id, servicios_request, incluir_altern
                 servicios_flex.append({
                     "servicio": s["servicio"],
                     "n_slots": s["n_slots"],
+                    "etapas": s["etapas"],
+                    "duracion_estimada": s["duracion_estimada"],
                     "candidatos": candidatos_flex,
                     "prof_fijo": None,
                 })
 
             alternativas = _buscar_secuencias(
                 servicios_flex, total_slots, total_duracion_slots, min_slot,
-                prof_masks, est_masks, cliente_mask, estaciones_ids,
+                prof_masks, est_masks, cliente_mask, estaciones_by_tipo,
                 hora_apertura, pref_slot=pref_slot
             )
 
@@ -252,7 +275,7 @@ def calcular_disponibilidad(fecha, cliente_id, servicios_request, incluir_altern
 
 
 def _buscar_secuencias(servicios_info, total_slots, total_duracion_slots, min_slot,
-                       prof_masks, est_masks, cliente_mask, estaciones_ids,
+                       prof_masks, est_masks, cliente_mask, estaciones_by_tipo,
                        hora_apertura, pref_slot=None):
     """
     Para cada slot de inicio posible, enumera TODAS las combinaciones válidas
@@ -292,7 +315,7 @@ def _buscar_secuencias(servicios_info, total_slots, total_duracion_slots, min_sl
     for start_slot in slots_to_check:
         nuevas = _enumerar_combinaciones(
             servicios_info, start_slot,
-            prof_masks, est_masks, cliente_mask, estaciones_ids,
+            prof_masks, est_masks, cliente_mask, estaciones_by_tipo,
             hora_apertura, profs_map, MAX_OPCIONES, pref_slot=pref_slot
         )
         for sec in nuevas:
@@ -311,7 +334,7 @@ def _buscar_secuencias(servicios_info, total_slots, total_duracion_slots, min_sl
 
 
 def _enumerar_combinaciones(servicios_info, start_slot, prof_masks, est_masks,
-                            cliente_mask, estaciones_ids, hora_apertura,
+                            cliente_mask, estaciones_by_tipo, hora_apertura,
                             profs_map, max_resultados, pref_slot=None):
     """
     Backtracking recursivo: para un slot de inicio fijo, genera todas las
@@ -352,62 +375,103 @@ def _enumerar_combinaciones(servicios_info, start_slot, prof_masks, est_masks,
             return
 
         s_info = servicios_info[idx]
-        n_slots = s_info["n_slots"]
+        total_n_slots = s_info["n_slots"]
 
-        # Cliente libre en este rango
-        if not _is_range_free(cliente_mask | cli_temp, slot_actual, n_slots):
+        # Cliente libre en este rango (el cliente siempre debe estar para todo el servicio)
+        if not _is_range_free(cliente_mask | cli_temp, slot_actual, total_n_slots):
             return
-
-        range_bits = ((1 << n_slots) - 1) << slot_actual
 
         for prof_id in s_info["candidatos"]:
             if len(resultados) >= max_resultados:
                 return
 
-            # Profesional libre
-            if not _is_range_free(
-                prof_masks.get(prof_id, 0) | prof_temp.get(prof_id, 0),
-                slot_actual, n_slots
-            ):
-                continue
-
-            # Estación libre
-            est_elegido = None
-            for est_id in estaciones_ids:
-                if _is_range_free(
-                    est_masks.get(est_id, 0) | est_temp.get(est_id, 0),
-                    slot_actual, n_slots
+            prof_mask = prof_masks.get(prof_id, 0) | prof_temp.get(prof_id, 0)
+            
+            curr_slot = slot_actual
+            prof_valido = True
+            estaciones_asignadas = [] # (est_id, c_slot, e_slots, tipo_req)
+            est_temp_local = {} # Para no reutilizar estaciones cruzadas en etapas simultáneas
+            
+            for etapa in s_info["etapas"]:
+                e_slots = etapa["n_slots"]
+                
+                # Check profesional (sólo si es requerido en esta etapa)
+                if etapa["requiere_profesional"]:
+                    if not _is_range_free(prof_mask, curr_slot, e_slots):
+                        prof_valido = False
+                        break
+                
+                # Check estación por tipo
+                est_elegido = None
+                tipo_req = etapa["tipo_estacion"]
+                candidatas = estaciones_by_tipo.get(tipo_req, [])
+                
+                # Tratar de mantener al cliente en la misma estación si es del mismo tipo
+                last_of_type = next((e_id for e_id, _, _, e_tipo in reversed(estaciones_asignadas) if e_tipo == tipo_req), None)
+                if last_of_type and _is_range_free(
+                    est_masks.get(last_of_type, 0) | est_temp.get(last_of_type, 0) | est_temp_local.get(last_of_type, 0),
+                    curr_slot, e_slots
                 ):
-                    est_elegido = est_id
+                    est_elegido = last_of_type
+                else:
+                    for est_id in candidatas:
+                        if _is_range_free(
+                            est_masks.get(est_id, 0) | est_temp.get(est_id, 0) | est_temp_local.get(est_id, 0),
+                            curr_slot, e_slots
+                        ):
+                            est_elegido = est_id
+                            break
+                
+                if est_elegido is None:
+                    prof_valido = False
                     break
+                    
+                estaciones_asignadas.append((est_elegido, curr_slot, e_slots, tipo_req))
+                r_bits = ((1 << e_slots) - 1) << curr_slot
+                est_temp_local[est_elegido] = est_temp_local.get(est_elegido, 0) | r_bits
+                
+                curr_slot += e_slots
 
-            if est_elegido is None:
+            if not prof_valido:
                 continue
 
             score_delta = 0
             if prof_anterior is not None:
                 score_delta = 20 if prof_id == prof_anterior else -5
 
+            # Construir el bloque para el frontend (usamos la primera estación como referencia general)
             bloque = {
                 "servicio_id": s_info["servicio"].id,
                 "servicio_nombre": s_info["servicio"].nombre,
                 "profesional_id": prof_id,
                 "profesional_nombre": profs_map.get(prof_id, "?"),
-                "estacion_id": est_elegido,
+                "estacion_id": estaciones_asignadas[0][0] if estaciones_asignadas else None,
                 "inicio": _slot_to_time_str(slot_actual, hora_apertura),
-                "fin": _slot_to_time_str(slot_actual + n_slots, hora_apertura),
-                "duracion": s_info["servicio"].duracion_estimada,
+                "fin": _slot_to_time_str(slot_actual + total_n_slots, hora_apertura),
+                "duracion": s_info["duracion_estimada"],
             }
 
+            # Preparar máscaras para la recursión
             new_prof = dict(prof_temp)
-            new_prof[prof_id] = new_prof.get(prof_id, 0) | range_bits
+            curr_slot_mask = slot_actual
+            for etapa in s_info["etapas"]:
+                e_slots = etapa["n_slots"]
+                if etapa["requiere_profesional"]:
+                    r_bits = ((1 << e_slots) - 1) << curr_slot_mask
+                    new_prof[prof_id] = new_prof.get(prof_id, 0) | r_bits
+                curr_slot_mask += e_slots
+
             new_est = dict(est_temp)
-            new_est[est_elegido] = new_est.get(est_elegido, 0) | range_bits
+            for est_id, c_slot, e_slots, _ in estaciones_asignadas:
+                r_bits = ((1 << e_slots) - 1) << c_slot
+                new_est[est_id] = new_est.get(est_id, 0) | r_bits
+                
+            cli_range_bits = ((1 << total_n_slots) - 1) << slot_actual
 
             backtrack(
-                idx + 1, slot_actual + n_slots,
+                idx + 1, slot_actual + total_n_slots,
                 bloques + [bloque],
-                new_prof, new_est, cli_temp | range_bits,
+                new_prof, new_est, cli_temp | cli_range_bits,
                 prof_id, score + score_delta
             )
 

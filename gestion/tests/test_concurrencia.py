@@ -6,7 +6,7 @@ from datetime import timedelta, time as time_type, datetime
 from decimal import Decimal
 
 from ..models import (
-    Cliente, Profesional, Servicio, Estacion, HorarioAtencion, Turno, DetalleTurno, Producto
+    Cliente, Profesional, Servicio, Estacion, HorarioAtencion, Turno, DetalleTurno, Producto, EtapaServicio
 )
 
 
@@ -36,8 +36,11 @@ class TestConcurrencia(TransactionTestCase):
         # 3. Crear Servicio
         self.servicio = Servicio.objects.create(
             nombre="Corte de Pelo",
-            precio_sugerido=Decimal("1500.00"),
-            duracion_estimada=30
+            precio_sugerido=Decimal("1500.00")
+        )
+        EtapaServicio.objects.create(
+            servicio=self.servicio, orden=1, nombre="Corte",
+            duracion=30, tipo_estacion="estacion", requiere_profesional=True
         )
         
         # 4. Crear Profesional y vincular Habilidad

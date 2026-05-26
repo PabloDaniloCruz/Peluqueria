@@ -81,6 +81,15 @@
                             <td>
                                 <div class="fw-bold text-dark">{{ s.nombre }}</div>
                                 <div class="text-muted extra-small text-truncate" style="max-width: 300px;">{{ s.descripcion|default:"Sin descripción" }}</div>
+                                {% if s.etapas.all %}
+                                <div class="mt-1">
+                                    {% for etapa in s.etapas.all %}
+                                        <span class="badge bg-light text-secondary border extra-small mb-1">
+                                            {{ etapa.orden }}. {{ etapa.nombre }} ({{ etapa.duracion }}m)
+                                        </span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
                             </td>
                             <td>
                                 <span class="badge bg-light text-dark border">

@@ -78,9 +78,10 @@ El corazón de la aplicación es un **wizard de reserva de 3 pasos** compartido 
 
 El algoritmo de disponibilidad implementa una **arquitectura basada en bitmasks** donde cada bit representa un slot de 5 minutos. Las verificaciones de colisión son operaciones O(1) por comparación bitwise:
 
+- **Algoritmo RCPSP con Evaluación Asimétrica**: Los servicios se dividen en etapas. Cada etapa define su propia duración, tipo de estación requerida, y si retiene o no al profesional (permitiendo intercalar clientes en tiempos muertos, ej: exposición de tintura).
 - **Bitmasks de ocupación**: Se construyen bitmasks separados por profesional, por estación y por cliente. Cada bit encendido = slot ocupado.
-- **Agenda continua**: Los servicios se encadenan uno tras otro (fin del primero = inicio del segundo), sin huecos.
-- **Backtracking recursivo**: Para cada slot de inicio, se genera recursivamente todas las asignaciones válidas de profesional × estación para cada servicio.
+- **Agenda continua**: Los servicios se encadenan uno tras otro.
+- **Backtracking recursivo**: Para cada slot de inicio, se genera recursivamente todas las asignaciones válidas de profesional × estación evaluando etapa por etapa.
 - **Búsqueda radial**: Si el cliente indica un horario preferido, se busca en una ventana de ±3 horas ordenada por proximidad, y luego el resto del día como último recurso.
 - **Sistema de scoring**: Con preferencia horaria → `10000 - (distancia_minutos)` + bonus de calidad. Sin preferencia → bonus por hora temprana. Bonus de continuidad: +20 si el mismo profesional atiende el servicio siguiente, -5 si cambia.
 - **Triple validación de recursos**: Cada slot candidato valida que el profesional, la estación física y el cliente estén libres simultáneamente.
@@ -257,18 +258,24 @@ Cada profesional tiene:
 
 ---
 
-### 🛎️ Gestión de Servicios
+### 🛎️ Gestión de Servicios (Multietapa)
 
 | Funcionalidad | Ruta |
 |---------------|------|
 | Listado reordenable (drag & drop) | `/servicios/` |
 | Crear nuevo servicio | `/servicios/nuevo/` |
-| Editar servicio | `/servicios/<id>/editar/` |
+| Editar servicio (y sus etapas) | `/servicios/<id>/editar/` |
 | Eliminar (soft-delete) | `/servicios/<id>/eliminar/` |
 | Reactivar | `/servicios/<id>/reactivar/` |
 | Reordenar (AJAX con `bulk_update`) | `/servicios/reordenar/` |
 
-Cada servicio define: nombre (único), descripción, precio sugerido, duración estimada (en minutos) y orden de visualización para secuencias multi-servicio.
+**Novedad: Arquitectura Multietapa (RCPSP)**
+Cada servicio se compone de **Etapas de Servicio**. Cada etapa define:
+- **Duración**: En bloques de 5 minutos.
+- **Tipo de Estación**: Estación de trabajo (silla), Lavacabezas o Ninguna (sala de espera).
+- **Requiere Profesional**: Permite liberar al profesional durante tiempos de exposición (ej: actuando la tintura), para que atienda a otro cliente en paralelo.
+
+La duración estimada del servicio se calcula dinámicamente como la suma de sus etapas.
 
 ---
 
@@ -575,7 +582,7 @@ python manage.py migrate
 
 ---
 
-## 📐 Modelo de Datos (15 modelos)
+## 📐 Modelo de Datos (16 modelos)
 
 ```mermaid
 erDiagram
@@ -589,6 +596,7 @@ erDiagram
     Reserva ||--o{ Turno : agrupa
     Turno ||--o{ DetalleTurno : incluye
     Servicio ||--o{ DetalleTurno : detalla
+    Servicio ||--o{ EtapaServicio : contiene
     Turno ||--o| Venta : factura
     Turno ||--o{ ConsumoInsumo : consume
     Turno ||--o{ FichaTecnica : registra
@@ -631,9 +639,15 @@ erDiagram
     Servicio {
         string nombre UK
         decimal precio_sugerido
-        int duracion_estimada
         int orden_sugerido
         bool activo
+    }
+    EtapaServicio {
+        int orden
+        string nombre
+        int duracion
+        string tipo_estacion
+        bool requiere_profesional
     }
     Estacion {
         string nombre UK

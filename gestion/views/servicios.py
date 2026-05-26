@@ -5,8 +5,9 @@ from django.contrib import messages
 from django.contrib.auth.decorators import user_passes_test
 from django.views.decorators.http import require_POST
 
+from django.db import transaction
 from ..models import Servicio
-from ..forms import ServicioForm
+from ..forms import ServicioForm, EtapaServicioFormSet
 
 
 def es_admin(user):
@@ -65,13 +66,26 @@ def reordenar_servicios(request):
 def crear_servicio(request):
     if request.method == 'POST':
         form = ServicioForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, 'Servicio creado correctamente.')
+        formset = EtapaServicioFormSet(request.POST)
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                servicio = form.save()
+                formset.instance = servicio
+                formset.save()
+            messages.success(request, 'Servicio y etapas creados correctamente.')
             return redirect('lista_servicios')
+        else:
+            print("ERRORES FORM:", form.errors)
+            print("ERRORES FORMSET:", formset.errors)
+            print("NON-FORM FORMSET:", formset.non_form_errors())
     else:
         form = ServicioForm()
-    return render(request, 'gestion/servicio_form.html', {'form': form, 'titulo': 'Nuevo Servicio'})
+        formset = EtapaServicioFormSet()
+    return render(request, 'gestion/servicio_form.html', {
+        'form': form, 
+        'formset': formset,
+        'titulo': 'Nuevo Servicio'
+    })
 
 
 @user_passes_test(es_admin)
@@ -79,13 +93,21 @@ def editar_servicio(request, serv_id):
     servicio = get_object_or_404(Servicio, id=serv_id)
     if request.method == 'POST':
         form = ServicioForm(request.POST, instance=servicio)
-        if form.is_valid():
-            form.save()
+        formset = EtapaServicioFormSet(request.POST, instance=servicio)
+        if form.is_valid() and formset.is_valid():
+            with transaction.atomic():
+                form.save()
+                formset.save()
             messages.success(request, 'Servicio actualizado correctamente.')
             return redirect('lista_servicios')
     else:
         form = ServicioForm(instance=servicio)
-    return render(request, 'gestion/servicio_form.html', {'form': form, 'titulo': 'Editar Servicio'})
+        formset = EtapaServicioFormSet(instance=servicio)
+    return render(request, 'gestion/servicio_form.html', {
+        'form': form, 
+        'formset': formset,
+        'titulo': 'Editar Servicio'
+    })
 
 
 @user_passes_test(es_admin)

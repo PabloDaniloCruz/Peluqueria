@@ -19,10 +19,16 @@ from ..api_disponibilidad import calcular_disponibilidad
 
 def reservar_turno_publico(request):
     """GET — Renderizar wizard público multi-servicio."""
-    servicios = list(Servicio.objects.filter(activo=True).values(
-        'id', 'nombre', 'descripcion', 'precio_sugerido',
-        'duracion_estimada', 'orden_sugerido'
-    ))
+    servicios_qs = Servicio.objects.filter(activo=True).prefetch_related('etapas')
+    servicios = [{
+        'id': s.id,
+        'nombre': s.nombre,
+        'descripcion': s.descripcion,
+        'precio_sugerido': s.precio_sugerido,
+        'duracion_estimada': s.duracion_estimada,
+        'orden_sugerido': s.orden_sugerido,
+        'etapas': [{'nombre': e.nombre, 'duracion': e.duracion} for e in s.etapas.all()]
+    } for s in servicios_qs]
     profesionales = [
         {
             'id': p.id,
@@ -200,10 +206,16 @@ def reservar_turno_interno(request):
             return JsonResponse({'error': str(e)}, status=500)
 
     # GET — Renderizar wizard
-    servicios = list(Servicio.objects.filter(activo=True).values(
-        'id', 'nombre', 'descripcion', 'precio_sugerido',
-        'duracion_estimada', 'orden_sugerido'
-    ))
+    servicios_qs = Servicio.objects.filter(activo=True).prefetch_related('etapas')
+    servicios = [{
+        'id': s.id,
+        'nombre': s.nombre,
+        'descripcion': s.descripcion,
+        'precio_sugerido': s.precio_sugerido,
+        'duracion_estimada': s.duracion_estimada,
+        'orden_sugerido': s.orden_sugerido,
+        'etapas': [{'nombre': e.nombre, 'duracion': e.duracion} for e in s.etapas.all()]
+    } for s in servicios_qs]
     profesionales = [
         {
             'id': p.id,
@@ -247,10 +259,16 @@ def reprogramar_turno(request, pk):
     }
 
     # Reutilizamos la lógica de cargar servicios y profesionales
-    servicios = list(Servicio.objects.filter(activo=True).values(
-        'id', 'nombre', 'descripcion', 'precio_sugerido',
-        'duracion_estimada', 'orden_sugerido'
-    ))
+    servicios_qs = Servicio.objects.filter(activo=True).prefetch_related('etapas')
+    servicios = [{
+        'id': s.id,
+        'nombre': s.nombre,
+        'descripcion': s.descripcion,
+        'precio_sugerido': s.precio_sugerido,
+        'duracion_estimada': s.duracion_estimada,
+        'orden_sugerido': s.orden_sugerido,
+        'etapas': [{'nombre': e.nombre, 'duracion': e.duracion} for e in s.etapas.all()]
+    } for s in servicios_qs]
     profesionales = [
         {
             'id': p.id,

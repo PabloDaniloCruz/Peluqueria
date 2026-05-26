@@ -94,19 +94,32 @@ document.addEventListener('DOMContentLoaded', function () {
                 ? `${horas}h ${mins > 0 ? mins + 'min' : ''}`
                 : `${mins} min`;
 
+            let etapasHtml = '';
+            if (s.etapas && s.etapas.length > 0) {
+                etapasHtml = '<div class="mt-2" style="font-size: 0.85rem;"><strong class="text-muted">Etapas:</strong><ul class="mb-0 ps-3 text-muted">';
+                s.etapas.forEach(e => {
+                    etapasHtml += `<li>${e.nombre} (${e.duracion} min)</li>`;
+                });
+                etapasHtml += '</ul></div>';
+            }
+
             const col = document.createElement('div');
             col.className = 'col';
             col.innerHTML = `
                 <div class="card servicio-card h-100" data-id="${s.id}" onclick="toggleServicio(${s.id})">
-                    <div class="card-body d-flex justify-content-between align-items-center">
-                        <div>
-                            <h6 class="card-title mb-1">${s.nombre}</h6>
-                            <small class="text-muted">${durStr}</small>
+                    <div class="card-body d-flex flex-column justify-content-between">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="card-title mb-1">${s.nombre}</h6>
+                                <small class="text-muted fw-bold">${durStr} total</small>
+                            </div>
+                            <div class="text-end">
+                                <span class="fw-bold text-primary">$${parseFloat(s.precio_sugerido).toLocaleString()}</span>
+                            </div>
                         </div>
-                        <div class="text-end">
-                            <span class="fw-bold text-primary">$${parseFloat(s.precio_sugerido).toLocaleString()}</span>
-                            <br>
-                            <span class="badge bg-light text-dark mt-1 check-badge" style="display:none;">✓ Seleccionado</span>
+                        ${etapasHtml}
+                        <div class="text-end mt-2">
+                            <span class="badge bg-dark text-white check-badge" style="display:none;"><i class="bi bi-check-lg"></i> Seleccionado</span>
                         </div>
                     </div>
                 </div>

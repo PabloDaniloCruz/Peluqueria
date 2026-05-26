@@ -33,7 +33,7 @@ DEBUG = os.environ.get('DJANGO_DEBUG', 'True') == 'True'
 
 ALLOWED_HOSTS = os.environ.get(
     'DJANGO_ALLOWED_HOSTS',
-    'danilo2004.pythonanywhere.com,127.0.0.1,localhost'
+    'danilo2004.pythonanywhere.com,127.0.0.1,localhost,testserver'
 ).split(',')
 
 

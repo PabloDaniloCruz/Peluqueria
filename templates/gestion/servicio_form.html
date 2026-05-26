@@ -6,12 +6,12 @@
     <a href="{% url 'lista_servicios' %}" class="btn btn-outline-secondary">Cancelar y Volver</a>
 </div>
 
+<form method="post">
+{% csrf_token %}
 <div class="row">
     <div class="col-md-6">
         <div class="card shadow-sm">
             <div class="card-body">
-                <form method="post">
-                    {% csrf_token %}
                     
                     <div class="mb-3">
                         <label class="form-label fw-bold">Nombre del Servicio</label>
@@ -34,22 +34,121 @@
                                 <button type="button" class="btn btn-outline-secondary" onclick="ajustarPrecio(100)">+100</button>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-bold">Duración (minutos)</label>
-                            <div class="input-group">
-                                {{ form.duracion_estimada }}
-                                <span class="input-group-text">min</span>
-                            </div>
-                        </div>
+                        <!-- La duración estimada ahora es dinámica, no se carga a mano -->
                     </div>
 
-                    <div class="text-end">
-                        <button type="submit" class="btn btn-primary px-5">Guardar Servicio</button>
+                    <div class="text-end mt-4">
+                        <button type="submit" class="btn btn-primary px-5 w-100">Guardar Todo (Servicio + Etapas)</button>
                     </div>
-                </form>
             </div>
         </div>
     </div>
+
+    <!-- Panel de Etapas del Servicio (RCPSP) -->
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="card-title mb-0">Etapas del Servicio</h5>
+            </div>
+            <div class="card-body">
+                {{ formset.management_form }}
+                <div id="etapas-container">
+                    {% for etapa_form in formset %}
+                    <div class="etapa-form border rounded p-3 mb-3 bg-white position-relative">
+                        {% for hidden in etapa_form.hidden_fields %}{{ hidden }}{% endfor %}
+                        
+                        {% if etapa_form.errors %}
+                            <div class="alert alert-danger p-2 small mb-2">
+                                {% for field in etapa_form %}
+                                    {% for error in field.errors %}
+                                        <strong>{{ field.label }}:</strong> {{ error }}<br>
+                                    {% endfor %}
+                                {% endfor %}
+                                {{ etapa_form.non_field_errors }}
+                            </div>
+                        {% endif %}
+
+                        <div class="row g-2">
+                            <div class="col-md-3">
+                                <label class="form-label small fw-bold">Orden</label>
+                                {{ etapa_form.orden }}
+                            </div>
+                            <div class="col-md-9">
+                                <label class="form-label small fw-bold">Nombre Etapa</label>
+                                {{ etapa_form.nombre }}
+                            </div>
+                            <div class="col-md-6 mt-2">
+                                <label class="form-label small fw-bold">Duración (min)</label>
+                                {{ etapa_form.duracion }}
+                            </div>
+                            <div class="col-md-6 mt-2">
+                                <label class="form-label small fw-bold">Estación</label>
+                                {{ etapa_form.tipo_estacion }}
+                            </div>
+                            <div class="col-md-12 mt-3 d-flex justify-content-between align-items-center">
+                                <div class="form-check">
+                                    {{ etapa_form.requiere_profesional }}
+                                    <label class="form-check-label small" for="{{ etapa_form.requiere_profesional.id_for_label }}">
+                                        Requiere al Profesional
+                                    </label>
+                                </div>
+                                {% if formset.can_delete %}
+                                <div class="form-check text-danger">
+                                    {{ etapa_form.DELETE }}
+                                    <label class="form-check-label small" for="{{ etapa_form.DELETE.id_for_label }}">Eliminar</label>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                
+                <button type="button" id="btn-add-etapa" class="btn btn-outline-success w-100 mt-2">
+                    + Agregar Etapa
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+</form>
+
+<!-- Plantilla oculta para clonar con JS -->
+<div id="empty-form-template" style="display: none;">
+    <div class="etapa-form border rounded p-3 mb-3 bg-white position-relative">
+        {% for hidden in formset.empty_form.hidden_fields %}{{ hidden }}{% endfor %}
+        <div class="row g-2">
+            <div class="col-md-3">
+                <label class="form-label small fw-bold">Orden</label>
+                {{ formset.empty_form.orden }}
+            </div>
+            <div class="col-md-9">
+                <label class="form-label small fw-bold">Nombre Etapa</label>
+                {{ formset.empty_form.nombre }}
+            </div>
+            <div class="col-md-6 mt-2">
+                <label class="form-label small fw-bold">Duración (min)</label>
+                {{ formset.empty_form.duracion }}
+            </div>
+            <div class="col-md-6 mt-2">
+                <label class="form-label small fw-bold">Estación</label>
+                {{ formset.empty_form.tipo_estacion }}
+            </div>
+            <div class="col-md-12 mt-3 d-flex justify-content-between align-items-center">
+                <div class="form-check">
+                    {{ formset.empty_form.requiere_profesional }}
+                    <label class="form-check-label small">Requiere al Profesional</label>
+                </div>
+                {% if formset.can_delete %}
+                <div class="form-check text-danger">
+                    {{ formset.empty_form.DELETE }}
+                    <label class="form-check-label small">Eliminar</label>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
 </div>
 
 <script>
@@ -62,6 +161,24 @@
             if (actual < 0) actual = 0;
             precioInput.value = actual;
         };
+
+        // Formset dinámico de Etapas
+        const btnAdd = document.getElementById('btn-add-etapa');
+        const container = document.getElementById('etapas-container');
+        const totalFormsInput = document.querySelector('#id_etapas-TOTAL_FORMS'); // Django usa el prefix 'etapas' o por default modelname_set
+        const templateHTML = document.getElementById('empty-form-template').innerHTML;
+
+        btnAdd.addEventListener('click', function() {
+            let totalForms = parseInt(totalFormsInput.value);
+            // Reemplazar '__prefix__' por el índice real (totalForms)
+            let newFormHTML = templateHTML.replace(/__prefix__/g, totalForms);
+            
+            // Insertar al final del contenedor
+            container.insertAdjacentHTML('beforeend', newFormHTML);
+            
+            // Actualizar el contador de forms de Django
+            totalFormsInput.value = totalForms + 1;
+        });
     });
 </script>
 {% endblock %}

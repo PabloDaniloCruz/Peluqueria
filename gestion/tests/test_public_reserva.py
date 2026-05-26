@@ -5,7 +5,7 @@ from datetime import timedelta, time as time_type, datetime
 from decimal import Decimal
 
 from ..models import (
-    Cliente, Profesional, Servicio, Estacion, HorarioAtencion, Turno, DetalleTurno, Reserva
+    Cliente, Profesional, Servicio, Estacion, HorarioAtencion, Turno, DetalleTurno, Reserva, EtapaServicio
 )
 
 class TestReservaPublicaWizard(TestCase):
@@ -26,14 +26,21 @@ class TestReservaPublicaWizard(TestCase):
         self.servicio_corte = Servicio.objects.create(
             nombre="Corte Premium",
             precio_sugerido=Decimal("2000.00"),
-            duracion_estimada=30,
             orden_sugerido=1
         )
+        EtapaServicio.objects.create(
+            servicio=self.servicio_corte, orden=1, nombre="Corte", 
+            duracion=30, tipo_estacion="estacion", requiere_profesional=True
+        )
+
         self.servicio_lavado = Servicio.objects.create(
             nombre="Lavado Nutritivo",
             precio_sugerido=Decimal("800.00"),
-            duracion_estimada=15,
             orden_sugerido=2
+        )
+        EtapaServicio.objects.create(
+            servicio=self.servicio_lavado, orden=1, nombre="Lavado", 
+            duracion=15, tipo_estacion="estacion", requiere_profesional=True
         )
         
         # 4. Crear Profesional y vincular habilidades
