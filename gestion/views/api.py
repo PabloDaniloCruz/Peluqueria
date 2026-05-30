@@ -45,7 +45,9 @@ def api_horarios_disponibles(request):
 
     turnos_del_dia = list(Turno.objects.filter(
         fecha_hora__date=fecha
-    ).exclude(estado__in=['cancelado', 'completado']).select_related('profesional', 'estacion'))
+    ).exclude(estado__in=['cancelado', 'completado']).prefetch_related(
+        'detalleturno_set__profesional', 'detalleturno_set__etapas_asignadas__estacion'
+    ))
     
     estaciones_activas = list(Estacion.objects.filter(activa=True))
 
@@ -55,7 +57,11 @@ def api_horarios_disponibles(request):
         
         prof_libre = True
         for t in turnos_del_dia:
-            if t.profesional_id == profesional.id:
+            # Check if any DetalleTurno has this professional in this time slot
+            detalle_profs = set()
+            for dt in t.detalleturno_set.all():
+                detalle_profs.add(dt.profesional_id)
+            if profesional.id in detalle_profs:
                 t_inicio = timezone.localtime(t.fecha_hora).replace(tzinfo=None)
                 t_fin = timezone.localtime(t.hora_fin_estimada).replace(tzinfo=None)
                 if slot_inicio_naive < t_fin and slot_fin_naive > t_inicio:
@@ -77,7 +83,12 @@ def api_horarios_disponibles(request):
             for est in estaciones_activas:
                 est_ocupada = False
                 for t in turnos_del_dia:
-                    if t.estacion_id == est.id:
+                    detalle_ests = set()
+                    for dt in t.detalleturno_set.all():
+                        for de in dt.etapas_asignadas.all():
+                            if de.estacion_id is not None:
+                                detalle_ests.add(de.estacion_id)
+                    if est.id in detalle_ests:
                         t_inicio = timezone.localtime(t.fecha_hora).replace(tzinfo=None)
                         t_fin = timezone.localtime(t.hora_fin_estimada).replace(tzinfo=None)
                         if slot_inicio_naive < t_fin and slot_fin_naive > t_inicio:

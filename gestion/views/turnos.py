@@ -31,9 +31,9 @@ def cancelar_turno(request, turno_id):
         servicios_nombres = ", ".join([s.nombre for s in turno.servicios.all()])
         fecha_hora_str = timezone.localtime(turno.fecha_hora).strftime('%d/%m a las %H:%M')
 
-        # Si el turno pertenece a una reserva, incluimos el link de autogestión
-        if turno.reserva:
-            url_gestion = request.build_absolute_uri(reverse('gestion_reserva_publica', args=[turno.reserva.token]))
+        # Si el turno tiene token, incluimos el link de autogestión
+        if turno.token:
+            url_gestion = request.build_absolute_uri(reverse('gestion_turno_publico', args=[turno.token]))
             mensaje_wa = (
                 f"¡Hola {cliente.nombre}! Te escribimos de Studio Salta. "
                 f"Tu turno del {fecha_hora_str}hs ({servicios_nombres}) ha sido cancelado. "
@@ -95,16 +95,20 @@ def facturar_turno(request, turno_id):
                     total_real = form.cleaned_data['total']
                     metodo_pago = form.cleaned_data['metodo_pago']
                     
-                    # Calcular comisión basada en el porcentaje del profesional
-                    porcentaje = turno.profesional.porcentaje_comision
-                    comision_calculada = (total_real * porcentaje) / 100
+                    # Calcular comisiones por cada DetalleTurno
+                    comision_total = Decimal('0.00')
+                    for dt in turno.detalleturno_set.select_related('profesional').all():
+                        pct = dt.profesional.porcentaje_comision
+                        monto = (dt.precio_real * pct) / 100
+                        comision_total += monto
 
                     # Crear la Venta
                     venta = Venta.objects.create(
                         turno=turno,
+                        cliente=turno.cliente,
                         total=total_real,
                         metodo_pago=metodo_pago,
-                        comision=comision_calculada
+                        comision=comision_total,
                     )
 
                     # Procesar Productos Vendidos

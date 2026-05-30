@@ -2,7 +2,7 @@
 Algoritmo de disponibilidad combinada para reservas multi-servicio.
 
 Dado un conjunto de servicios (con profesional fijo u opcional), una fecha,
-y un cliente, calcula las secuencias contiguas válidas de turnos ordenadas
+y un cliente, calcula las secuencias contiguas válidas de DetalleTurnos ordenadas
 por score.
 
 Usa bitmasks de disponibilidad (cada bit = SLOT_MINUTES minutos) para hacer
@@ -10,8 +10,10 @@ las verificaciones de colisión en O(1) por comparación.
 """
 from datetime import datetime, timedelta
 from django.utils import timezone
+from django.db.models import Prefetch
 from .models import (
-    Servicio, Profesional, Turno, Estacion, HorarioAtencion, HabilidadProfesional, CierreExcepcional
+    Servicio, Profesional, Turno, DetalleTurno, Estacion, HorarioAtencion,
+    HabilidadProfesional, CierreExcepcional
 )
 
 SLOT_MINUTES = 5
@@ -43,7 +45,7 @@ def _slot_to_time_str(slot_idx, hora_base):
 def _build_bitmask(turnos_del_dia, fecha, hora_apertura, total_slots, key_fn):
     """
     Construye un dict de bitmasks {key: int} a partir de los turnos del día.
-    key_fn extrae la clave de agrupación de cada turno (ej: profesional_id).
+    key_fn extrae la clave de agrupación de cada turno (ej: cliente_id).
     Cada bit encendido = slot ocupado.
     """
     masks = {}
@@ -63,6 +65,38 @@ def _build_bitmask(turnos_del_dia, fecha, hora_apertura, total_slots, key_fn):
 
         bits = ((1 << (slot_fin - slot_ini)) - 1) << slot_ini
         masks[key] = masks.get(key, 0) | bits
+
+    return masks
+
+
+def _build_detalle_bitmask(turnos_del_dia, hora_apertura, total_slots, key_fn):
+    """
+    Construye un dict de bitmasks {key: int} a partir de los DetalleEtapa
+    asociados a cada turno. key_fn extrae la clave de agrupación de cada
+    DetalleEtapa (ej: estacion_id, detalle.profesional_id).
+    Cada bit encendido = slot ocupado.
+    Usa el rango total del Turno como bloque ocupado para ese recurso.
+    """
+    masks = {}
+    for t in turnos_del_dia:
+        t_inicio = timezone.localtime(t.fecha_hora).replace(tzinfo=None)
+        t_fin = timezone.localtime(t.hora_fin_estimada).replace(tzinfo=None)
+
+        slot_ini = _time_to_slot(t_inicio.time(), hora_apertura)
+        slot_fin = _time_to_slot(t_fin.time(), hora_apertura)
+
+        slot_ini = max(0, slot_ini)
+        slot_fin = min(total_slots, slot_fin)
+
+        if slot_fin <= slot_ini:
+            continue
+
+        bits = ((1 << (slot_fin - slot_ini)) - 1) << slot_ini
+
+        for dt in t.detalleturno_set.all():
+            for detalle_etapa in dt.etapas_asignadas.all():
+                key = key_fn(detalle_etapa)
+                masks[key] = masks.get(key, 0) | bits
 
     return masks
 
@@ -145,14 +179,19 @@ def calcular_disponibilidad(fecha, cliente_id, servicios_request, incluir_altern
     turnos_dia = list(
         Turno.objects.filter(fecha_hora__date=fecha)
         .exclude(estado__in=["cancelado", "completado"])
-        .select_related("profesional", "estacion")
+        .prefetch_related(
+            Prefetch(
+                'detalleturno_set',
+                queryset=DetalleTurno.objects.prefetch_related('etapas_asignadas')
+            )
+        )
     )
 
-    # Bitmasks
-    prof_masks = _build_bitmask(turnos_dia, fecha, hora_apertura, total_slots,
-                                lambda t: t.profesional_id)
-    est_masks = _build_bitmask(turnos_dia, fecha, hora_apertura, total_slots,
-                               lambda t: t.estacion_id)
+    # Bitmasks — profesional y estación desde DetalleEtapa
+    prof_masks = _build_detalle_bitmask(turnos_dia, hora_apertura, total_slots,
+                                        lambda de: de.detalle.profesional_id)
+    est_masks = _build_detalle_bitmask(turnos_dia, hora_apertura, total_slots,
+                                       lambda de: de.estacion_id)
     cliente_mask = salon_mask
     if cliente_id:
         cli_masks = _build_bitmask(turnos_dia, fecha, hora_apertura, total_slots,
@@ -190,6 +229,7 @@ def calcular_disponibilidad(fecha, cliente_id, servicios_request, incluir_altern
             }]
         else:
             etapas_info = [{
+                "id": e.id,
                 "n_slots": _slots_en_rango(e.duracion),
                 "tipo_estacion": e.tipo_estacion,
                 "requiere_profesional": e.requiere_profesional,
@@ -401,34 +441,40 @@ def _enumerar_combinaciones(servicios_info, start_slot, prof_masks, est_masks,
                         prof_valido = False
                         break
                 
-                # Check estación por tipo
+                # Check estación por tipo (solo si la etapa requiere una estación)
                 est_elegido = None
                 tipo_req = etapa["tipo_estacion"]
-                candidatas = estaciones_by_tipo.get(tipo_req, [])
                 
-                # Tratar de mantener al cliente en la misma estación si es del mismo tipo
-                last_of_type = next((e_id for e_id, _, _, e_tipo in reversed(estaciones_asignadas) if e_tipo == tipo_req), None)
-                if last_of_type and _is_range_free(
-                    est_masks.get(last_of_type, 0) | est_temp.get(last_of_type, 0) | est_temp_local.get(last_of_type, 0),
-                    curr_slot, e_slots
-                ):
-                    est_elegido = last_of_type
+                if tipo_req == "ninguna":
+                    # Etapa sin estación (ej: reposo de tintura, sala de espera)
+                    est_elegido = -1  # marcador, no es una estación real
                 else:
-                    for est_id in candidatas:
-                        if _is_range_free(
-                            est_masks.get(est_id, 0) | est_temp.get(est_id, 0) | est_temp_local.get(est_id, 0),
-                            curr_slot, e_slots
-                        ):
-                            est_elegido = est_id
-                            break
-                
-                if est_elegido is None:
-                    prof_valido = False
-                    break
+                    candidatas = estaciones_by_tipo.get(tipo_req, [])
                     
+                    # Tratar de mantener al cliente en la misma estación si es del mismo tipo
+                    last_of_type = next((e_id for e_id, _, _, e_tipo in reversed(estaciones_asignadas) if e_tipo == tipo_req), None)
+                    if last_of_type and _is_range_free(
+                        est_masks.get(last_of_type, 0) | est_temp.get(last_of_type, 0) | est_temp_local.get(last_of_type, 0),
+                        curr_slot, e_slots
+                    ):
+                        est_elegido = last_of_type
+                    else:
+                        for est_id in candidatas:
+                            if _is_range_free(
+                                est_masks.get(est_id, 0) | est_temp.get(est_id, 0) | est_temp_local.get(est_id, 0),
+                                curr_slot, e_slots
+                            ):
+                                est_elegido = est_id
+                                break
+                    
+                    if est_elegido is None:
+                        prof_valido = False
+                        break
+                
                 estaciones_asignadas.append((est_elegido, curr_slot, e_slots, tipo_req))
-                r_bits = ((1 << e_slots) - 1) << curr_slot
-                est_temp_local[est_elegido] = est_temp_local.get(est_elegido, 0) | r_bits
+                if est_elegido != -1:
+                    r_bits = ((1 << e_slots) - 1) << curr_slot
+                    est_temp_local[est_elegido] = est_temp_local.get(est_elegido, 0) | r_bits
                 
                 curr_slot += e_slots
 
@@ -439,13 +485,23 @@ def _enumerar_combinaciones(servicios_info, start_slot, prof_masks, est_masks,
             if prof_anterior is not None:
                 score_delta = 20 if prof_id == prof_anterior else -5
 
-            # Construir el bloque para el frontend (usamos la primera estación como referencia general)
+            # Construir el bloque para el frontend (con estaciones_asignadas por etapa)
             bloque = {
                 "servicio_id": s_info["servicio"].id,
                 "servicio_nombre": s_info["servicio"].nombre,
                 "profesional_id": prof_id,
                 "profesional_nombre": profs_map.get(prof_id, "?"),
-                "estacion_id": estaciones_asignadas[0][0] if estaciones_asignadas else None,
+                "estaciones_asignadas": [
+                    {
+                        "etapa_servicio_id": etapa_info.get("id"),
+                        "nombre": etapa_info["nombre"],
+                        "estacion_id": est_id,
+                        "hora_inicio": _slot_to_time_str(c_slot, hora_apertura),
+                        "hora_fin": _slot_to_time_str(c_slot + e_slots, hora_apertura),
+                    }
+                    for (est_id, c_slot, e_slots, _), etapa_info
+                    in zip(estaciones_asignadas, s_info["etapas"])
+                ],
                 "inicio": _slot_to_time_str(slot_actual, hora_apertura),
                 "fin": _slot_to_time_str(slot_actual + total_n_slots, hora_apertura),
                 "duracion": s_info["duracion_estimada"],
@@ -463,6 +519,8 @@ def _enumerar_combinaciones(servicios_info, start_slot, prof_masks, est_masks,
 
             new_est = dict(est_temp)
             for est_id, c_slot, e_slots, _ in estaciones_asignadas:
+                if est_id == -1:
+                    continue  # etapa sin estación (ninguna)
                 r_bits = ((1 << e_slots) - 1) << c_slot
                 new_est[est_id] = new_est.get(est_id, 0) | r_bits
                 

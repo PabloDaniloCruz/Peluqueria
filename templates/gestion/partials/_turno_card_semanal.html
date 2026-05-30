@@ -21,13 +21,15 @@
                 {{ turno.cliente }}
             </a>
         </div>
-        <div class="text-muted text-truncate">✂️ {{ turno.profesional.nombre }}</div>
         <div class="text-muted text-truncate">
-            {% for s in turno.servicios.all %}{{ s.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}
+            {% for detalle in turno.detalleturno_set.all %}
+                {{ detalle.servicio.nombre }}·{{ detalle.profesional.nombre }}·
+                {% for etapa in detalle.etapas_asignadas.all %}
+                    {{ etapa.etapa_servicio.nombre }}({{ etapa.estacion.nombre|default:"Espera" }}){% if not forloop.last %}→{% endif %}
+                {% endfor %}{% if not forloop.last %}, {% endif %}
+            {% endfor %}
         </div>
-        {% if turno.reserva %}
-            <span class="badge bg-light text-muted border" style="font-size:0.65em;">🔗 R#{{ turno.reserva.id }}</span>
-        {% endif %}
+
         <div class="mt-1 d-flex gap-1 flex-wrap">
             {% if turno.estado != 'completado' and turno.estado != 'cancelado' %}
                 <a href="{% url 'facturar_turno' turno.id %}" class="btn btn-success btn-sm py-0 px-1" style="font-size:0.7em;">💰</a>

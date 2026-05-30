@@ -20,27 +20,22 @@
 
                     {{ turno.get_estado_display }}
                 </span>
-                {% if turno.reserva %}
-                    <a href="?fecha={{ fecha_filtro|date:'Y-m-d' }}&vista=dia&reserva={{ turno.reserva.id }}"
-                       class="badge bg-light text-muted text-decoration-none border"
-                       title="Ver todos los turnos de esta reserva">
-                        🔗 Reserva #{{ turno.reserva.id }}
-                    </a>
-                {% endif %}
+
             </div>
         </div>
 
         <p class="card-text mb-1"><strong>⏰</strong> {{ turno.fecha_hora|date:"H:i" }} - {{ turno.hora_fin_estimada|date:"H:i" }}</p>
-        <p class="card-text mb-1"><strong>✂️</strong> {{ turno.profesional }}</p>
-        <p class="card-text mb-1"><strong>🪑</strong> {{ turno.estacion.nombre }}</p>
-        <p class="card-text mb-3">
-            <strong>📋</strong>
-            {% for servicio in turno.servicios.all %}
-                <span class="badge bg-light text-dark border">{{ servicio.nombre }}</span>
-            {% empty %}
-                <span class="text-muted small">Sin servicios</span>
-            {% endfor %}
-        </p>
+        {% for detalle in turno.detalleturno_set.all %}
+            <p class="card-text mb-1 ps-2 border-start border-secondary">
+                <strong>📋</strong> {{ detalle.servicio.nombre }}
+                <span class="text-muted">✂️</span> {{ detalle.profesional.nombre }}
+                {% for etapa in detalle.etapas_asignadas.all %}
+                    <span class="text-muted">🪑</span> {{ etapa.etapa_servicio.nombre }} → {{ etapa.estacion.nombre|default:"Espera" }}{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </p>
+        {% empty %}
+            <p class="card-text mb-1 text-muted small ps-2">Sin servicios</p>
+        {% endfor %}
 
         <div class="d-flex gap-2 flex-wrap">
             {% if turno.estado == 'pendiente' %}
@@ -61,6 +56,6 @@
         </div>
     </div>
     <div class="card-footer bg-transparent border-0 text-muted small">
-        Turno #{{ turno.id }}{% if turno.orden and turno.reserva %} · Bloque {{ turno.orden|add:1 }} de la reserva{% endif %}
+        Turno #{{ turno.id }}
     </div>
 </div>

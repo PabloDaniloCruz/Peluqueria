@@ -16,6 +16,7 @@
                 <h5 class="mb-0">Datos Personales</h5>
             </div>
             <div class="card-body">
+                <p><strong>DNI:</strong> {{ cliente.dni|default:"No registrado" }}</p>
                 <p><strong>Teléfono:</strong> {{ cliente.telefono }}</p>
                 <p><strong>Email:</strong> {{ cliente.email|default:"No registrado" }}</p>
                 <p><strong>Estado:</strong> 

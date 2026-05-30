@@ -1,3 +1,5 @@
+from itertools import groupby
+
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.utils import timezone
@@ -5,12 +7,12 @@ from django.db.models import F, Q
 from django.contrib.auth.decorators import login_required
 from datetime import date as date_type, timedelta as td
 
-from ..models import Turno, Profesional, Servicio, Estacion, Producto
+from ..models import Turno, Profesional, Servicio, Estacion, Producto, DetalleEtapa
 
 
 @login_required
 def dashboard_recepcion(request):
-    hoy = timezone.now().date()
+    hoy = timezone.localdate()
     ahora = timezone.now()
 
     # --- Lógica de Auto-inicio ---
@@ -49,7 +51,6 @@ def dashboard_recepcion(request):
     profesional_filtro = request.GET.get('profesional', '')
     servicio_filtro    = request.GET.get('servicio', '')
     estacion_filtro    = request.GET.get('estacion', '')
-    reserva_filtro     = request.GET.get('reserva', '')
     cliente_q          = request.GET.get('q', '').strip()
     sin_facturar       = request.GET.get('sin_facturar', '')
 
@@ -57,13 +58,11 @@ def dashboard_recepcion(request):
         if estado_filtro:
             qs = qs.filter(estado=estado_filtro)
         if profesional_filtro:
-            qs = qs.filter(profesional_id=profesional_filtro)
+            qs = qs.filter(detalleturno__profesional_id=profesional_filtro).distinct()
         if servicio_filtro:
             qs = qs.filter(servicios__id=servicio_filtro)
         if estacion_filtro:
-            qs = qs.filter(estacion_id=estacion_filtro)
-        if reserva_filtro:
-            qs = qs.filter(reserva_id=reserva_filtro)
+            qs = qs.filter(detalleturno__etapas_asignadas__estacion_id=estacion_filtro).distinct()
         if cliente_q:
             qs = qs.filter(
                 Q(cliente__nombre__icontains=cliente_q) |
@@ -74,15 +73,66 @@ def dashboard_recepcion(request):
             qs = qs.filter(venta__isnull=True).exclude(estado__in=['completado', 'cancelado'])
         return qs
 
-    # --- Queryset vista diaria ---
+    def aplicar_filtros_etapas(qs):
+        if estado_filtro:
+            qs = qs.filter(detalle__turno__estado=estado_filtro)
+        if profesional_filtro:
+            qs = qs.filter(detalle__profesional_id=profesional_filtro)
+        if servicio_filtro:
+            qs = qs.filter(detalle__servicio_id=servicio_filtro)
+        if estacion_filtro:
+            qs = qs.filter(estacion_id=estacion_filtro)
+        if cliente_q:
+            qs = qs.filter(
+                Q(detalle__turno__cliente__nombre__icontains=cliente_q) |
+                Q(detalle__turno__cliente__apellido__icontains=cliente_q) |
+                Q(detalle__turno__cliente__telefono__icontains=cliente_q)
+            )
+        if sin_facturar:
+            qs = qs.filter(detalle__turno__venta__isnull=True).exclude(
+                detalle__turno__estado__in=['completado', 'cancelado']
+            )
+        return qs
+
+    # --- Timeline de etapas (vista día) ---
+    base_etapas = (
+        DetalleEtapa.objects
+        .filter(detalle__turno__fecha_hora__date=fecha_filtro)
+        .select_related(
+            'detalle__turno__cliente',
+            'detalle__profesional',
+            'detalle__servicio',
+            'etapa_servicio',
+            'estacion',
+        )
+        .order_by('hora_inicio', 'detalle__turno__cliente__nombre')
+    )
+    etapas_filtradas = aplicar_filtros_etapas(base_etapas)
+
+    # --- Mantener turnos para contadores y filtros (vista semanal) ---
     base_dia = (
         Turno.objects
         .filter(fecha_hora__date=fecha_filtro)
-        .select_related('cliente', 'profesional', 'estacion', 'reserva')
-        .prefetch_related('servicios')
+        .select_related('cliente')
+        .prefetch_related(
+            'detalleturno_set__profesional',
+            'detalleturno_set__etapas_asignadas__estacion',
+            'detalleturno_set__etapas_asignadas__etapa_servicio',
+            'servicios'
+        )
         .order_by('fecha_hora')
     )
     turnos = aplicar_filtros(base_dia)
+
+    # --- Agrupar etapas por turno para el timeline ---
+    etapas_list = list(etapas_filtradas)
+    turno_groups = []
+    for turno_pk, group in groupby(etapas_list, key=lambda e: e.detalle.turno.pk):
+        items = list(group)
+        turno_groups.append({
+            'turno': items[0].detalle.turno,
+            'etapas': items,
+        })
 
     # --- Contadores del día (sin filtros de contenido) ---
     todos_del_dia = Turno.objects.filter(fecha_hora__date=fecha_filtro)
@@ -98,8 +148,13 @@ def dashboard_recepcion(request):
     turnos_semana_raw = (
         Turno.objects
         .filter(fecha_hora__date__gte=lunes, fecha_hora__date__lte=domingo)
-        .select_related('cliente', 'profesional', 'estacion', 'reserva')
-        .prefetch_related('servicios')
+        .select_related('cliente')
+        .prefetch_related(
+            'detalleturno_set__profesional',
+            'detalleturno_set__etapas_asignadas__estacion',
+            'detalleturno_set__etapas_asignadas__etapa_servicio',
+            'servicios'
+        )
         .order_by('fecha_hora')
     )
     turnos_semana_raw = aplicar_filtros(turnos_semana_raw)
@@ -127,6 +182,7 @@ def dashboard_recepcion(request):
 
     contexto = {
         'turnos':              turnos,
+        'turno_groups':        turno_groups,
         'hoy':                 hoy,
         'fecha_filtro':        fecha_filtro,
         'fecha_anterior':      fecha_anterior,
@@ -145,7 +201,6 @@ def dashboard_recepcion(request):
         'profesional_filtro':  profesional_filtro,
         'servicio_filtro':     servicio_filtro,
         'estacion_filtro':     estacion_filtro,
-        'reserva_filtro':      reserva_filtro,
         'cliente_q':           cliente_q,
         'sin_facturar':        sin_facturar,
         # Opciones dropdowns

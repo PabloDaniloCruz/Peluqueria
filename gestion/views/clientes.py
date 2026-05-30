@@ -36,6 +36,7 @@ def lista_clientes(request):
     
     if query:
         clientes_bd = clientes_bd.filter(
+            Q(dni__icontains=query) |
             Q(nombre__icontains=query) |
             Q(apellido__icontains=query) |
             Q(telefono__icontains=query) |
@@ -108,6 +109,7 @@ def api_buscar_clientes(request):
         return JsonResponse({'results': []})
     
     clientes = Cliente.objects.filter(
+        Q(dni__icontains=q) | 
         Q(nombre__icontains=q) | 
         Q(apellido__icontains=q) | 
         Q(telefono__icontains=q),
@@ -118,10 +120,11 @@ def api_buscar_clientes(request):
     for c in clientes:
         results.append({
             'id': c.id,
+            'dni': c.dni,
             'nombre': c.nombre,
             'apellido': c.apellido,
             'telefono': c.telefono,
-            'text': f"{c.nombre} {c.apellido} ({c.telefono})"
+            'text': f"{c.nombre} {c.apellido}" + (f" — DNI: {c.dni}" if c.dni else f" ({c.telefono})")
         })
     
     return JsonResponse({'results': results})

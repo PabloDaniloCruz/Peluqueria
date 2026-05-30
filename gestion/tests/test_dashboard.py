@@ -1,7 +1,7 @@
 from django.test import TestCase, Client
 from django.contrib.auth.models import User
 from django.utils import timezone
-from datetime import timedelta, time as time_type
+from datetime import datetime, timedelta, time as time_type
 from decimal import Decimal
 
 from ..models import Cliente, Profesional, Servicio, Estacion, HorarioAtencion, Turno, EtapaServicio
@@ -49,37 +49,40 @@ class TestDashboardRecepcion(TestCase):
             telefono="3871234567"
         )
 
-        # Crear Turnos para HOY pero a futuro, así el auto-inicio no los toca
-        ahora = timezone.now()
-        # 1. Turno Pendiente — a 30 minutos en el futuro
+        # Crear Turnos para HOY pero a futuro (poco antes de medianoche),
+        # así evitamos que el auto-inicio los marque como atrasados.
+        today = timezone.localdate()
+        casi_medianoche = timezone.make_aware(
+            datetime.combine(today, time_type(23, 50)),
+            timezone.get_current_timezone()
+        )
+        # 1. Turno Pendiente — a las 23:50
         self.turno_pendiente = Turno.objects.create(
             cliente=self.cliente,
-            profesional=self.profesional,
-            estacion=self.estacion,
-            fecha_hora=ahora + timedelta(minutes=30),
-            hora_fin_estimada=ahora + timedelta(minutes=60),
+            fecha_hora=casi_medianoche,
+            hora_fin_estimada=casi_medianoche + timedelta(minutes=30),
             estado="pendiente"
         )
-        # En vez de .add(), creamos DetalleTurno para pasar precio_real
+        # En vez de .add(), creamos DetalleTurno con profesional
         from ..models import DetalleTurno
         DetalleTurno.objects.create(
             turno=self.turno_pendiente,
             servicio=self.servicio,
+            profesional=self.profesional,
             precio_real=self.servicio.precio_sugerido
         )
 
-        # 2. Turno Cancelado — a 90 minutos en el futuro (distinto para no solapar)
+        # 2. Turno Cancelado — a las 23:55 (distinto para no solapar)
         self.turno_cancelado = Turno.objects.create(
             cliente=self.cliente,
-            profesional=self.profesional,
-            estacion=self.estacion,
-            fecha_hora=ahora + timedelta(minutes=90),
-            hora_fin_estimada=ahora + timedelta(minutes=120),
+            fecha_hora=casi_medianoche + timedelta(minutes=5),
+            hora_fin_estimada=casi_medianoche + timedelta(minutes=35),
             estado="cancelado"
         )
         DetalleTurno.objects.create(
             turno=self.turno_cancelado,
             servicio=self.servicio,
+            profesional=self.profesional,
             precio_real=self.servicio.precio_sugerido
         )
 

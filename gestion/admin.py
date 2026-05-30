@@ -1,7 +1,7 @@
 from django.contrib import admin
 from .models import (
     Cliente, Servicio, Estacion, Profesional, 
-    HabilidadProfesional, Turno, DetalleTurno, 
+    HabilidadProfesional, Turno, DetalleTurno, DetalleEtapa,
     Venta, FichaTecnica, Producto, HorarioAtencion,
     EtapaServicio
 )
@@ -13,8 +13,8 @@ class HorarioAtencionAdmin(admin.ModelAdmin):
 
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
-    list_display = ('apellido', 'nombre', 'telefono', 'email', 'activo')
-    search_fields = ('apellido', 'nombre', 'email')
+    list_display = ('dni', 'apellido', 'nombre', 'telefono', 'email', 'activo')
+    search_fields = ('dni', 'apellido', 'nombre', 'telefono', 'email')
 
 class EtapaServicioInline(admin.TabularInline):
     model = EtapaServicio
@@ -42,15 +42,32 @@ class EstacionAdmin(admin.ModelAdmin):
 
 @admin.register(Profesional)
 class ProfesionalAdmin(admin.ModelAdmin):
-    list_display = ('apellido', 'nombre', 'porcentaje_comision', 'activo')
+    list_display = ('dni', 'apellido', 'nombre', 'porcentaje_comision', 'activo')
+    search_fields = ('dni', 'apellido', 'nombre', 'telefono')
 
 @admin.register(Producto)
 class ProductoAdmin(admin.ModelAdmin):
     list_display = ('nombre', 'stock_actual', 'stock_minimo', 'precio', 'activo')
     list_editable = ('stock_actual', 'precio')
 
+class DetalleEtapaInline(admin.TabularInline):
+    model = DetalleEtapa
+    extra = 0
+    readonly_fields = ('detalle', 'etapa_servicio', 'estacion', 'hora_inicio', 'hora_fin')
+    can_delete = False
+    verbose_name = "Etapa asignada"
+    verbose_name_plural = "Etapas asignadas (estación por etapa)"
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+
+class DetalleTurnoAdmin(admin.ModelAdmin):
+    inlines = [DetalleEtapaInline]
+
+
 admin.site.register(Turno)
-admin.site.register(DetalleTurno)
+admin.site.register(DetalleTurno, DetalleTurnoAdmin)
 admin.site.register(Venta)
 admin.site.register(FichaTecnica)
 admin.site.register(HabilidadProfesional)

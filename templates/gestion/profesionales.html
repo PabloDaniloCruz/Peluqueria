@@ -25,7 +25,7 @@
                             <i class="bi bi-search"></i>
                         </span>
                         <input type="text" name="q" class="form-control border-start-0" 
-                               placeholder="Buscar por nombre, especialidad o contacto..." 
+                               placeholder="Buscar por nombre, DNI, especialidad o contacto..." 
                                value="{{ query }}">
                     </div>
                 </div>
@@ -66,6 +66,7 @@
                     <thead class="table-light text-muted small text-uppercase">
                         <tr>
                             <th class="ps-4">Profesional</th>
+                            <th>DNI</th>
                             <th>Contacto / Usuario</th>
                             <th>Habilidades</th>
                             <th>Estado</th>
@@ -85,6 +86,11 @@
                                         <span class="text-muted extra-small">ID: #{{ p.id }}</span>
                                     </div>
                                 </div>
+                            </td>
+                            <td>
+                                <span class="small{% if not p.dni %} text-muted{% endif %}">
+                                    {{ p.dni|default:"—" }}
+                                </span>
                             </td>
                             <td>
                                 <div class="small"><i class="bi bi-telephone text-muted me-1"></i> {{ p.telefono }}</div>

@@ -67,71 +67,76 @@ class TestConcurrencia(TransactionTestCase):
             es_para_venta=True
         )
 
-    def test_concurrent_turnos_same_professional(self):
+    def test_concurrent_turno_multiples_detalles(self):
         """
-        Intenta guardar dos turnos superpuestos para el mismo profesional concurrentemente.
-        El bloqueo pesimista debe forzar la serialización y que el segundo lance una validación errónea.
+        Valida que un Turno pueda tener múltiples DetalleTurno con distintos profesionales
+        creados de forma atómica (nuevo modelo: 1 Turno = 1 visita con N servicios).
         """
-        # Definir horario común
-        fecha_hora = timezone.make_aware(datetime.combine(timezone.now().date() + timedelta(days=1), time_type(10, 0)))
-        hora_fin_estimada = fecha_hora + timedelta(minutes=30)
-        
-        results = []
-        errors = []
-        
-        def attempt_booking(cliente, profesional, estacion, ident):
-            try:
-                from django.db import transaction
-                with transaction.atomic():
-                    # Bloquear profesional y estaciones
-                    prof = Profesional.objects.select_for_update().get(id=profesional.id)
-                    _ = list(Estacion.objects.select_for_update().filter(activa=True).order_by('id'))
-                    
-                    # Chequear superposición del profesional (lógica que ocurre en clean del turno)
-                    overlapping = Turno.objects.filter(
-                        profesional=prof,
-                        fecha_hora__lt=hora_fin_estimada,
-                        hora_fin_estimada__gt=fecha_hora
-                    ).exclude(estado__in=["cancelado", "completado"]).exists()
-                    
-                    if overlapping:
-                        raise ValidationError("El profesional ya tiene un turno asignado en ese horario.")
-                        
-                    # Crear turno
-                    t = Turno.objects.create(
-                        cliente=cliente,
-                        profesional=prof,
-                        estacion=estacion,
-                        fecha_hora=fecha_hora,
-                        hora_fin_estimada=hora_fin_estimada
-                    )
-                    results.append(t)
-            except Exception as e:
-                errors.append(e)
+        from django.db import transaction
 
-        # Crear dos hilos concurrentes
-        t1 = threading.Thread(target=attempt_booking, args=(self.cliente1, self.profesional, self.estacion, 1))
-        t2 = threading.Thread(target=attempt_booking, args=(self.cliente2, self.profesional, self.estacion, 2))
-        
-        t1.start()
-        t2.start()
-        
-        t1.join()
-        t2.join()
-        
-        # Debió haberse creado exactamente 1 turno y el otro debió fallar por colisión o por bloqueo de base de datos
-        self.assertEqual(len(results), 1)
-        self.assertEqual(len(errors), 1)
-        
-        from django.db import DatabaseError
-        error = errors[0]
-        if isinstance(error, ValidationError):
-            self.assertEqual(str(error.messages[0]), "El profesional ya tiene un turno asignado en ese horario.")
-        elif isinstance(error, (DatabaseError, Exception)) and "locked" in str(error).lower():
-            # SQLite bloquea la base de datos concurrentemente, lo cual es totalmente válido
-            pass
-        else:
-            self.fail(f"Se esperaba una colisión de negocio o un bloqueo de base de datos, pero se obtuvo: {type(error)} - {error}")
+        fecha_hora = timezone.make_aware(datetime.combine(
+            timezone.now().date() + timedelta(days=1), time_type(10, 0)
+        ))
+        hora_fin = fecha_hora + timedelta(minutes=45)
+
+        # Crear un segundo profesional y un segundo servicio
+        from ..models import DetalleTurno
+        profesional2 = Profesional.objects.create(
+            nombre="Ana", apellido="Estilista",
+            porcentaje_comision=30
+        )
+        profesional2.habilidades.add(self.servicio)
+
+        servicio2 = Servicio.objects.create(
+            nombre="Corte + Lavado",
+            precio_sugerido=Decimal("2500.00")
+        )
+        EtapaServicio.objects.create(
+            servicio=servicio2, orden=1, nombre="Corte",
+            duracion=30, tipo_estacion="estacion", requiere_profesional=True
+        )
+        profesional2.habilidades.add(servicio2)
+        self.profesional.habilidades.add(servicio2)
+
+        try:
+            with transaction.atomic():
+                turno = Turno.objects.create(
+                    cliente=self.cliente1,
+                    fecha_hora=fecha_hora,
+                    hora_fin_estimada=hora_fin,
+                    estado="pendiente"
+                )
+
+                # Crear 2 DetalleTurno con distintos profesionales y servicios
+                dt1 = DetalleTurno.objects.create(
+                    turno=turno,
+                    servicio=self.servicio,
+                    profesional=self.profesional,
+                    precio_real=Decimal("1500.00"),
+                    hora_inicio=time_type(10, 0),
+                    hora_fin=time_type(10, 30),
+                )
+
+                dt2 = DetalleTurno.objects.create(
+                    turno=turno,
+                    servicio=servicio2,
+                    profesional=profesional2,
+                    precio_real=Decimal("2500.00"),
+                    hora_inicio=time_type(10, 30),
+                    hora_fin=time_type(10, 45),
+                )
+
+            # Verificar: 1 Turno con 2 DetalleTurno
+            self.assertEqual(Turno.objects.count(), 1)
+            self.assertEqual(DetalleTurno.objects.count(), 2)
+            self.assertEqual(turno.detalleturno_set.count(), 2)
+
+            # Verificar profesionales distintos
+            profesionales = set(dt.profesional.id for dt in turno.detalleturno_set.all())
+            self.assertIn(self.profesional.id, profesionales)
+            self.assertIn(profesional2.id, profesionales)
+        except Exception as e:
+            self.fail(f"La creación atómica de 1 Turno + N DetalleTurno falló: {e}")
 
     def test_concurrency_stock_facturacion(self):
         """

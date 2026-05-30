@@ -40,6 +40,10 @@ class Profesional(models.Model):
     a través de HabilidadProfesional.
     """
 
+    dni = models.CharField(
+        "DNI", max_length=15, unique=True, blank=True, null=True,
+        help_text="Documento Nacional de Identidad"
+    )
     nombre = models.CharField("nombre", max_length=100)
     apellido = models.CharField("apellido", max_length=100)
     telefono = models.CharField("teléfono", max_length=20, blank=True)

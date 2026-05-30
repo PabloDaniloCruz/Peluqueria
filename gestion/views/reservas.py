@@ -10,10 +10,10 @@ from django.views.decorators.http import require_POST
 from datetime import timedelta, datetime
 
 from ..models import (
-    Cliente, Turno, DetalleTurno, Estacion, Profesional,
-    Servicio, HorarioAtencion, Reserva
+    Cliente, Turno, DetalleTurno, DetalleEtapa, Estacion, Profesional,
+    Servicio, HorarioAtencion,
 )
-from ..forms import ReservaAlPasoForm
+
 from ..api_disponibilidad import calcular_disponibilidad
 
 
@@ -48,19 +48,19 @@ def reservar_turno_publico(request):
     pre_load = None
     if repro_id and token_str:
         try:
-            reserva = Reserva.objects.get(token=token_str)
-            turno = Turno.objects.get(id=repro_id, reserva=reserva)
+            turno = Turno.objects.get(id=repro_id, token=token_str)
             if turno.estado in ['pendiente', 'por_reprogramar']:
                 pre_load = {
                     'cliente_id': turno.cliente.id,
                     'nombre': turno.cliente.nombre,
                     'apellido': turno.cliente.apellido,
+                    'dni': turno.cliente.dni or '',
                     'telefono': turno.cliente.telefono,
                     'servicios_ids': list(turno.servicios.values_list('id', flat=True)),
                     'repro_id': turno.id,
                     'msg': f"Reprogramando tu Turno de {turno.cliente.nombre}"
                 }
-        except (Reserva.DoesNotExist, Turno.DoesNotExist, ValueError):
+        except (Turno.DoesNotExist, ValueError):
             pass
 
     contexto = {
@@ -91,13 +91,21 @@ def reservar_turno_interno(request):
         else:
             nombre = data.get('nombre', '').strip()
             apellido = data.get('apellido', '').strip()
+            dni = data.get('dni', '').strip()
             telefono = data.get('telefono', '').strip()
-            if not all([nombre, apellido, telefono]):
-                return JsonResponse({'error': 'Datos del cliente incompletos.'}, status=400)
-            cliente, _ = Cliente.objects.get_or_create(
-                telefono=telefono,
-                defaults={'nombre': nombre, 'apellido': apellido}
+            if not all([nombre, apellido, dni]):
+                return JsonResponse({'error': 'Nombre, apellido y DNI son obligatorios.'}, status=400)
+            cliente, creado = Cliente.objects.get_or_create(
+                dni=dni,
+                defaults={'nombre': nombre, 'apellido': apellido, 'telefono': telefono}
             )
+            if not creado:
+                # Actualizar datos de contacto si el cliente ya existía
+                if cliente.nombre != nombre or cliente.apellido != apellido or cliente.telefono != telefono:
+                    cliente.nombre = nombre
+                    cliente.apellido = apellido
+                    cliente.telefono = telefono
+                    cliente.save(update_fields=['nombre', 'apellido', 'telefono'])
 
         opcion = data.get('opcion')
         if not opcion or not opcion.get('bloques'):
@@ -112,19 +120,11 @@ def reservar_turno_interno(request):
         except ValueError:
             return JsonResponse({'error': 'Formato de fecha inválido.'}, status=400)
 
-        # Crear Reserva + Turnos dentro de una transacción atómica
+        # Crear Turno + Detalles dentro de una transacción atómica
         try:
             with transaction.atomic():
-                # Bloqueamos el cliente para actualizaciones seguras de reservas
+                # Bloqueamos el cliente para actualizaciones seguras
                 cliente = Cliente.objects.select_for_update().get(id=cliente.id)
-
-                # 1. Obtener y ordenar los IDs únicos de profesionales y estaciones para evitar interbloqueos (deadlocks)
-                prof_ids = sorted(list(set(int(bloque['profesional_id']) for bloque in opcion['bloques'])))
-                est_ids = sorted(list(set(int(bloque['estacion_id']) for bloque in opcion['bloques'])))
-
-                # 2. Adquirir bloqueos pesimistas sobre los recursos en orden consistente de menor a mayor ID
-                _ = list(Profesional.objects.select_for_update().filter(id__in=prof_ids).order_by('id'))
-                _ = list(Estacion.objects.select_for_update().filter(id__in=est_ids).order_by('id'))
 
                 # Si estamos reprogramando, cancelamos el turno viejo para liberar espacio
                 repro_id = data.get('repro_id')
@@ -136,66 +136,73 @@ def reservar_turno_interno(request):
                         old_turno.observaciones = old_obs + f"\n[Cancelado por reprogramación el {timezone.now().strftime('%d/%m %H:%M')}]"
                         old_turno.save()
 
-                reserva = Reserva.objects.create(cliente=cliente, observaciones=observaciones)
+                # Calcular rango total del turno
+                primer_inicio = datetime.strptime(opcion['bloques'][0]['inicio'], '%H:%M').time()
+                ultimo_fin = datetime.strptime(opcion['bloques'][-1]['fin'], '%H:%M').time()
+                fecha_hora = timezone.make_aware(datetime.combine(fecha, primer_inicio))
+                hora_fin_estimada = timezone.make_aware(datetime.combine(fecha, ultimo_fin))
+
+                turno = Turno(
+                    cliente=cliente,
+                    fecha_hora=fecha_hora,
+                    hora_fin_estimada=hora_fin_estimada,
+                    estado='pendiente',
+                    observaciones=observaciones,
+                )
+                turno.clean()
+                turno.save()
 
                 turnos_creados = 0
 
-                for idx, bloque in enumerate(opcion['bloques']):
+                for bloque in opcion['bloques']:
                     servicio = Servicio.objects.get(id=bloque['servicio_id'])
-                    profesional = Profesional.objects.get(id=bloque['profesional_id'])
-                    estacion = Estacion.objects.get(id=bloque['estacion_id'])
+                    profesional_obj = Profesional.objects.get(id=bloque['profesional_id'])
+                    h_inicio = datetime.strptime(bloque['inicio'], '%H:%M').time()
+                    h_fin = datetime.strptime(bloque['fin'], '%H:%M').time()
 
-                    hora_inicio = datetime.strptime(bloque['inicio'], '%H:%M').time()
-                    hora_fin = datetime.strptime(bloque['fin'], '%H:%M').time()
-
-                    fecha_hora = timezone.make_aware(datetime.combine(fecha, hora_inicio))
-                    hora_fin_estimada = timezone.make_aware(datetime.combine(fecha, hora_fin))
-
-                    nuevo_turno = Turno(
-                        cliente=cliente,
-                        profesional=profesional,
-                        estacion=estacion,
-                        fecha_hora=fecha_hora,
-                        hora_fin_estimada=hora_fin_estimada,
-                        reserva=reserva,
-                        orden=idx,
-                        observaciones=observaciones,
-                    )
-                    nuevo_turno.clean()
-                    nuevo_turno.save()
-
-                    DetalleTurno.objects.create(
-                        turno=nuevo_turno,
+                    dt = DetalleTurno.objects.create(
+                        turno=turno,
                         servicio=servicio,
-                        precio_real=servicio.precio_sugerido
+                        profesional=profesional_obj,
+                        precio_real=servicio.precio_sugerido,
+                        hora_inicio=h_inicio,
+                        hora_fin=h_fin,
                     )
+
+                    # Crear DetalleEtapa por cada etapa del servicio
+                    for etapa in bloque.get('estaciones_asignadas', []):
+                        DetalleEtapa.objects.create(
+                            detalle=dt,
+                            etapa_servicio_id=etapa['etapa_servicio_id'],
+                            estacion_id=etapa['estacion_id'] if etapa.get('estacion_id', -1) != -1 else None,
+                            hora_inicio=etapa['hora_inicio'],
+                            hora_fin=etapa['hora_fin'],
+                        )
                     turnos_creados += 1
 
             # Generar URL de WhatsApp para enviar el comprobante y token de autogestión al cliente
             import urllib.parse
             import re
-            
-            turnos_activos = reserva.turnos_reserva.exclude(estado='cancelado').order_by('orden')
+
             detalles_texto = ""
-            for t in turnos_activos:
-                servicios_nombres = ", ".join([s.nombre for s in t.servicios.all()])
-                fecha_local = timezone.localtime(t.fecha_hora)
-                detalles_texto += f"\n- {fecha_local.strftime('%d/%m a las %H:%M')}hs: {servicios_nombres} con {t.profesional.nombre}"
-            
-            url_gestion = request.build_absolute_uri(f'/reservas/publica/gestion/{reserva.token}/')
+            for dt in turno.detalleturno_set.all():
+                fecha_local = timezone.localtime(turno.fecha_hora)
+                detalles_texto += f"\n- {fecha_local.strftime('%d/%m a las %H:%M')}hs: {dt.servicio.nombre} con {dt.profesional.nombre}"
+
+            url_gestion = request.build_absolute_uri(f'/turnos/publica/confirmacion/{turno.token}/')
             mensaje_wa = f"¡Hola {cliente.nombre}! Registramos tu turno en Studio Salta:{detalles_texto}\n\nPodés gestionar, reprogramar o cancelar tu reserva desde acá: {url_gestion}"
             mensaje_wa_encoded = urllib.parse.quote(mensaje_wa)
-            
+
             # Limpiar el número de teléfono del cliente para wa.me (solo dígitos, agregar 549 si tiene 10 dígitos)
             telefono_limpio = re.sub(r'\D', '', cliente.telefono)
             if not telefono_limpio.startswith('54') and len(telefono_limpio) == 10:
                 telefono_limpio = '549' + telefono_limpio
-            
+
             whatsapp_url = f"https://wa.me/{telefono_limpio}?text={mensaje_wa_encoded}"
 
             return JsonResponse({
                 'success': True,
-                'message': f'Se registraron {turnos_creados} turno(s) para {cliente}.',
+                'message': f'Se registraron {turnos_creados} servicio(s) para {cliente}.',
                 'redirect': '/',
                 'whatsapp_url': whatsapp_url
             })
@@ -251,6 +258,7 @@ def reprogramar_turno(request, pk):
         'cliente_id': turno.cliente.id,
         'nombre': turno.cliente.nombre,
         'apellido': turno.cliente.apellido,
+        'dni': turno.cliente.dni or '',
         'telefono': turno.cliente.telefono,
         'servicios_ids': list(turno.servicios.values_list('id', flat=True)),
         'repro_id': turno.id,
@@ -332,16 +340,20 @@ def api_disponibilidad_publica(request):
     fecha_str = data.get('fecha')
     hora_preferida = data.get('hora_preferida')
     servicios_req = data.get('servicios', [])
+    dni = data.get('dni', '').strip()
     telefono = data.get('telefono', '').strip()
 
     if not fecha_str or not servicios_req:
         return JsonResponse({'error': 'Faltan fecha o servicios.'}, status=400)
 
+    if not dni:
+        return JsonResponse({'error': 'Por favor, ingresá tu DNI.'}, status=400)
+
     if not telefono:
         return JsonResponse({'error': 'Por favor, ingresá tu teléfono.'}, status=400)
 
     # Control de saturación preventivo (máximo 2 turnos a futuro)
-    cliente = Cliente.objects.filter(telefono=telefono).first()
+    cliente = Cliente.objects.filter(dni=dni).first()
     if cliente:
         turnos_pendientes = Turno.objects.filter(
             cliente=cliente,
@@ -376,11 +388,15 @@ def confirmar_reserva_publica(request):
 
     nombre = data.get('nombre', '').strip()
     apellido = data.get('apellido', '').strip()
+    dni = data.get('dni', '').strip()
     telefono = data.get('telefono', '').strip()
     observaciones = data.get('observaciones', '').strip()
 
-    if not all([nombre, apellido, telefono]):
-        return JsonResponse({'error': 'Datos de contacto incompletos.'}, status=400)
+    if not all([nombre, apellido, dni]):
+        return JsonResponse({'error': 'Nombre, apellido y DNI son obligatorios.'}, status=400)
+
+    if not telefono:
+        return JsonResponse({'error': 'El teléfono de WhatsApp es obligatorio.'}, status=400)
 
     opcion = data.get('opcion')
     if not opcion or not opcion.get('bloques'):
@@ -397,13 +413,20 @@ def confirmar_reserva_publica(request):
 
     try:
         with transaction.atomic():
-            # 1. Buscar o crear el cliente por teléfono de manera segura
+            # 1. Buscar o crear el cliente por DNI de manera segura
             cliente, creado = Cliente.objects.get_or_create(
-                telefono=telefono,
-                defaults={'nombre': nombre, 'apellido': apellido}
+                dni=dni,
+                defaults={'nombre': nombre, 'apellido': apellido, 'telefono': telefono}
             )
+            # Si el cliente ya existía, actualizar datos de contacto si cambió
+            if not creado:
+                if cliente.nombre != nombre or cliente.apellido != apellido or cliente.telefono != telefono:
+                    cliente.nombre = nombre
+                    cliente.apellido = apellido
+                    cliente.telefono = telefono
+                    cliente.save(update_fields=['nombre', 'apellido', 'telefono'])
 
-            # 2. Bloqueamos el cliente para actualizaciones seguras de reservas
+            # 2. Bloqueamos el cliente para actualizaciones seguras
             cliente = Cliente.objects.select_for_update().get(id=cliente.id)
 
             # Si estamos reprogramando, cancelamos el turno viejo para liberar espacio
@@ -427,52 +450,54 @@ def confirmar_reserva_publica(request):
                     'error': 'Ya tenés 2 turnos reservados a futuro. Por favor, asistí o cancelá uno antes de agendar más.'
                 }, status=400)
 
-            # 4. Obtener y ordenar los IDs únicos de profesionales y estaciones para evitar interbloqueos
-            prof_ids = sorted(list(set(int(bloque['profesional_id']) for bloque in opcion['bloques'])))
-            est_ids = sorted(list(set(int(bloque['estacion_id']) for bloque in opcion['bloques'])))
+            # Calcular rango total del turno
+            primer_inicio = datetime.strptime(opcion['bloques'][0]['inicio'], '%H:%M').time()
+            ultimo_fin = datetime.strptime(opcion['bloques'][-1]['fin'], '%H:%M').time()
+            fecha_hora = timezone.make_aware(datetime.combine(fecha, primer_inicio))
+            hora_fin_estimada = timezone.make_aware(datetime.combine(fecha, ultimo_fin))
 
-            # 5. Adquirir bloqueos pesimistas sobre los recursos en orden consistente de menor a mayor ID
-            _ = list(Profesional.objects.select_for_update().filter(id__in=prof_ids).order_by('id'))
-            _ = list(Estacion.objects.select_for_update().filter(id__in=est_ids).order_by('id'))
+            turno = Turno(
+                cliente=cliente,
+                fecha_hora=fecha_hora,
+                hora_fin_estimada=hora_fin_estimada,
+                estado='pendiente',
+                observaciones=observaciones,
+            )
+            turno.clean()
+            turno.save()
 
-            reserva = Reserva.objects.create(cliente=cliente, observaciones=observaciones)
             turnos_creados = 0
 
-            for idx, bloque in enumerate(opcion['bloques']):
+            for bloque in opcion['bloques']:
                 servicio = Servicio.objects.get(id=bloque['servicio_id'])
-                profesional = Profesional.objects.get(id=bloque['profesional_id'])
-                estacion = Estacion.objects.get(id=bloque['estacion_id'])
+                profesional_obj = Profesional.objects.get(id=bloque['profesional_id'])
+                h_inicio = datetime.strptime(bloque['inicio'], '%H:%M').time()
+                h_fin = datetime.strptime(bloque['fin'], '%H:%M').time()
 
-                hora_inicio = datetime.strptime(bloque['inicio'], '%H:%M').time()
-                hora_fin = datetime.strptime(bloque['fin'], '%H:%M').time()
-
-                fecha_hora = timezone.make_aware(datetime.combine(fecha, hora_inicio))
-                hora_fin_estimada = timezone.make_aware(datetime.combine(fecha, hora_fin))
-
-                nuevo_turno = Turno(
-                    cliente=cliente,
-                    profesional=profesional,
-                    estacion=estacion,
-                    fecha_hora=fecha_hora,
-                    hora_fin_estimada=hora_fin_estimada,
-                    reserva=reserva,
-                    orden=idx,
-                    observaciones=observaciones,
-                )
-                nuevo_turno.clean()
-                nuevo_turno.save()
-
-                DetalleTurno.objects.create(
-                    turno=nuevo_turno,
+                dt = DetalleTurno.objects.create(
+                    turno=turno,
                     servicio=servicio,
-                    precio_real=servicio.precio_sugerido
+                    profesional=profesional_obj,
+                    precio_real=servicio.precio_sugerido,
+                    hora_inicio=h_inicio,
+                    hora_fin=h_fin,
                 )
+
+                # Crear DetalleEtapa por cada etapa del servicio
+                for etapa in bloque.get('estaciones_asignadas', []):
+                    DetalleEtapa.objects.create(
+                        detalle=dt,
+                        etapa_servicio_id=etapa['etapa_servicio_id'],
+                        estacion_id=etapa['estacion_id'] if etapa.get('estacion_id', -1) != -1 else None,
+                        hora_inicio=etapa['hora_inicio'],
+                        hora_fin=etapa['hora_fin'],
+                    )
                 turnos_creados += 1
 
         return JsonResponse({
             'success': True,
             'message': f'¡Se reservaron con éxito tus {turnos_creados} servicio(s) en Studio Salta!',
-            'redirect': f'/reservas/publica/confirmacion/{reserva.token}/'
+            'redirect': f'/turnos/publica/confirmacion/{turno.token}/'
         })
 
     except ValidationError as e:
@@ -481,43 +506,40 @@ def confirmar_reserva_publica(request):
         return JsonResponse({'error': str(e)}, status=500)
 
 
-def confirmacion_reserva_publica(request, token):
+def confirmacion_turno_publico(request, token):
     """Muestra la pantalla de éxito con botones dinámicos para WhatsApp, calendario y copiado."""
     from django.conf import settings
-    reserva = get_object_or_404(Reserva, token=token)
-    turnos = reserva.turnos_reserva.exclude(estado='cancelado').order_by('orden')
+    turno = get_object_or_404(Turno, token=token)
+    detalles = turno.detalleturno_set.select_related('servicio', 'profesional').prefetch_related(
+        'etapas_asignadas__estacion', 'etapas_asignadas__etapa_servicio'
+    ).all()
     
     # Armar texto para WhatsApp
     detalles_texto = ""
-    for t in turnos:
-        servicios_nombres = ", ".join([s.nombre for s in t.servicios.all()])
-        fecha_local = timezone.localtime(t.fecha_hora)
-        detalles_texto += f"\n- {fecha_local.strftime('%d/%m a las %H:%M')}hs: {servicios_nombres} con {t.profesional.nombre}"
+    for dt in detalles:
+        fecha_local = timezone.localtime(turno.fecha_hora)
+        detalles_texto += f"\n- {fecha_local.strftime('%d/%m a las %H:%M')}hs: {dt.servicio.nombre} con {dt.profesional.nombre}"
     
-    # Enlace de autogestión
-    url_gestion = request.build_absolute_uri(f'/reservas/publica/gestion/{token}/')
+    url_gestion = request.build_absolute_uri(f'/turnos/publica/gestion/{token}/')
     
-    mensaje_wa = f"¡Hola! Agendé mi turno en Studio Salta:{detalles_texto}\n\nLink para gestionar o reprogramar mi turno: {url_gestion}"
     import urllib.parse
+    mensaje_wa = f"¡Hola! Agendé mi turno en Studio Salta:{detalles_texto}\n\nLink para gestionar o reprogramar mi turno: {url_gestion}"
     mensaje_wa_encoded = urllib.parse.quote(mensaje_wa)
     
-    # Obtener el teléfono del salón configurado en settings
     salon_telefono = getattr(settings, 'SALON_WHATSAPP', '5493875551234')
     whatsapp_url = f"https://wa.me/{salon_telefono}?text={mensaje_wa_encoded}"
     
-    # Google Calendar link para el primer turno
     google_calendar_url = None
-    if turnos.exists():
-        primer_turno = turnos.first()
-        start_time = primer_turno.fecha_hora.strftime('%Y%m%dT%H%M%SZ')
-        end_time = primer_turno.hora_fin_estimada.strftime('%Y%m%dT%H%M%SZ') if primer_turno.hora_fin_estimada else start_time
+    if turno.fecha_hora:
+        start_time = turno.fecha_hora.strftime('%Y%m%dT%H%M%SZ')
+        end_time = turno.hora_fin_estimada.strftime('%Y%m%dT%H%M%SZ') if turno.hora_fin_estimada else start_time
         title = "Turno en Studio Salta"
         details = f"Gestionar tu turno aquí: {url_gestion}"
         google_calendar_url = f"https://www.google.com/calendar/render?action=TEMPLATE&text={urllib.parse.quote(title)}&dates={start_time}/{end_time}&details={urllib.parse.quote(details)}&sf=true&output=xml"
-
+    
     contexto = {
-        'reserva': reserva,
-        'turnos': turnos,
+        'turno': turno,
+        'detalles': detalles,
         'url_gestion': url_gestion,
         'whatsapp_url': whatsapp_url,
         'google_calendar_url': google_calendar_url,
@@ -525,43 +547,39 @@ def confirmacion_reserva_publica(request, token):
     return render(request, 'gestion/confirmacion_publica.html', contexto)
 
 
-def gestion_reserva_publica(request, token):
+def gestion_turno_publico(request, token):
     """Portal de autogestión pública para el cliente ver, reprogramar o cancelar sus turnos."""
-    reserva = get_object_or_404(Reserva, token=token)
-    turnos = reserva.turnos_reserva.order_by('orden')
-    
-    # Si todos están cancelados, se informa adecuadamente en la plantilla
-    turnos_activos = turnos.exclude(estado='cancelado')
+    turno = get_object_or_404(Turno, token=token)
+    detalles = turno.detalleturno_set.select_related('servicio', 'profesional').prefetch_related(
+        'etapas_asignadas__estacion', 'etapas_asignadas__etapa_servicio'
+    ).all()
     
     contexto = {
-        'reserva': reserva,
-        'turnos': turnos,
-        'tiene_activos': turnos_activos.exists(),
+        'turno': turno,
+        'detalles': detalles,
+        'tiene_activos': turno.estado not in ['cancelado', 'completado'],
     }
     return render(request, 'gestion/gestion_publica.html', contexto)
 
 
-def cancelar_reserva_publica(request, token):
-    """Permite al cliente cancelar todos los turnos de su reserva de forma segura con confirmación."""
-    reserva = get_object_or_404(Reserva, token=token)
-    turnos_activos = reserva.turnos_reserva.exclude(estado__in=['cancelado', 'completado'])
+def cancelar_turno_publico(request, token):
+    """Permite al cliente cancelar su turno de forma segura con confirmación."""
+    turno = get_object_or_404(Turno, token=token)
     
-    if not turnos_activos.exists():
-        messages.warning(request, "No tenés turnos activos para cancelar en esta reserva.")
-        return redirect('gestion_reserva_publica', token=token)
+    if turno.estado in ['cancelado', 'completado']:
+        messages.warning(request, "Este turno ya no está activo.")
+        return redirect('gestion_turno_publico', token=token)
         
     if request.method == 'POST':
         with transaction.atomic():
-            for t in turnos_activos:
-                t.estado = 'cancelado'
-                old_obs = t.observaciones or ''
-                t.observaciones = old_obs + f"\n[Cancelado por el cliente desde la web el {timezone.now().strftime('%d/%m %H:%M')}]"
-                t.save()
-            messages.success(request, "Tus turnos han sido cancelados con éxito.")
-        return redirect('gestion_reserva_publica', token=token)
+            turno.estado = 'cancelado'
+            old_obs = turno.observaciones or ''
+            turno.observaciones = old_obs + f"\n[Cancelado por el cliente desde la web el {timezone.now().strftime('%d/%m %H:%M')}]"
+            turno.save()
+        messages.success(request, "Tu turno ha sido cancelado con éxito.")
+        return redirect('gestion_turno_publico', token=token)
         
     contexto = {
-        'reserva': reserva,
-        'turnos': turnos_activos,
+        'turno': turno,
     }
     return render(request, 'gestion/cancelar_publica.html', contexto)

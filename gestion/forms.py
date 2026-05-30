@@ -7,51 +7,13 @@ from .models import (
 from django.forms import inlineformset_factory
 
 
-class ReservaAlPasoForm(forms.Form):
-    # --- Datos del Cliente ---
-    nombre = forms.CharField(max_length=100, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Tu nombre'}))
-    apellido = forms.CharField(max_length=100, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Tu apellido'}))
-    telefono = forms.CharField(max_length=20, widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Ej: 387...'}))
-    
-    # --- Datos del Turno ---
-    profesional = forms.ModelChoiceField(
-        queryset=Profesional.objects.filter(activo=True), 
-        widget=forms.Select(attrs={'class': 'form-select'})
-    )
-    servicio = forms.ModelChoiceField(
-        queryset=Servicio.objects.filter(activo=True), 
-        widget=forms.Select(attrs={'class': 'form-select'})
-    )
-    # Campos desglosados para UX
-    fecha = forms.DateField(
-        label="Fecha",
-        widget=forms.DateInput(attrs={'class': 'form-control', 'type': 'date'})
-    )
-    hora = forms.TimeField(
-        label="Hora",
-        widget=forms.HiddenInput()
-    )
-
-    def clean(self):
-        cleaned_data = super().clean()
-        fecha = cleaned_data.get('fecha')
-        hora = cleaned_data.get('hora')
-        
-        if fecha and hora:
-            # Combinamos fecha y hora
-            from django.utils import timezone
-            from datetime import datetime
-            dt = datetime.combine(fecha, hora)
-            cleaned_data['fecha_hora'] = timezone.make_aware(dt)
-        
-        return cleaned_data
-
 class ClienteForm(forms.ModelForm):
     class Meta:
         model = Cliente
-        fields = ['nombre', 'apellido', 'telefono', 'email']
+        fields = ['dni', 'nombre', 'apellido', 'telefono', 'email']
         
         widgets = {
+            'dni': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'DNI (opcional)'}),
             'nombre': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Nombre'}),
             'apellido': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Apellido'}),
             'telefono': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Teléfono de contacto'}),
@@ -128,8 +90,9 @@ class ProfesionalForm(forms.ModelForm):
 
     class Meta:
         model = Profesional
-        fields = ['nombre', 'apellido', 'telefono', 'email', 'porcentaje_comision']
+        fields = ['dni', 'nombre', 'apellido', 'telefono', 'email', 'porcentaje_comision']
         widgets = {
+            'dni': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'DNI'}),
             'nombre': forms.TextInput(attrs={'class': 'form-control'}),
             'apellido': forms.TextInput(attrs={'class': 'form-control'}),
             'telefono': forms.TextInput(attrs={'class': 'form-control'}),

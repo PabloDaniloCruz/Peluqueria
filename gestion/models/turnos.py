@@ -2,7 +2,7 @@ import uuid
 from django.db import models
 from django.core.validators import MinValueValidator
 from django.core.exceptions import ValidationError
-from .servicios import HorarioAtencion
+from .servicios import HorarioAtencion, EtapaServicio, Estacion
 
 
 class DetalleTurno(models.Model):
@@ -24,6 +24,12 @@ class DetalleTurno(models.Model):
         "precio real", max_digits=10, decimal_places=2,
         validators=[MinValueValidator(0)]
     )
+    profesional = models.ForeignKey(
+        "Profesional", on_delete=models.PROTECT,
+        verbose_name="profesional"
+    )
+    hora_inicio = models.DateTimeField("hora de inicio", null=True, blank=True)
+    hora_fin = models.DateTimeField("hora de fin", null=True, blank=True)
 
     class Meta:
         verbose_name = "Detalle del Turno"
@@ -39,25 +45,45 @@ class DetalleTurno(models.Model):
         return f"{self.turno} — {self.servicio} (${self.precio_real})"
 
 
-class Reserva(models.Model):
-    """Agrupa múltiples turnos creados en una misma sesión de reserva."""
+class DetalleEtapa(models.Model):
+    """
+    Asignación de estación por etapa de servicio dentro de un DetalleTurno.
+    Reemplaza DetalleTurno.estacion como source of truth para la ocupación
+    de estaciones en el algoritmo de disponibilidad.
+    """
 
-    cliente = models.ForeignKey(
-        "Cliente", on_delete=models.CASCADE,
-        related_name="reservas",
-        verbose_name="cliente"
+    detalle = models.ForeignKey(
+        DetalleTurno, on_delete=models.CASCADE,
+        related_name='etapas_asignadas', verbose_name="detalle del turno"
     )
-    fecha_creacion = models.DateTimeField("fecha de creación", auto_now_add=True)
-    observaciones = models.TextField("observaciones", blank=True)
-    token = models.UUIDField("token único", default=uuid.uuid4, unique=True, editable=False)
+    etapa_servicio = models.ForeignKey(
+        EtapaServicio, on_delete=models.PROTECT,
+        verbose_name="etapa del servicio"
+    )
+    estacion = models.ForeignKey(
+        Estacion, on_delete=models.PROTECT,
+        verbose_name="estación asignada",
+        null=True, blank=True
+    )
+    hora_inicio = models.DateTimeField("hora de inicio", null=True, blank=True)
+    hora_fin = models.DateTimeField("hora de fin", null=True, blank=True)
 
     class Meta:
-        verbose_name = "Reserva"
-        verbose_name_plural = "Reservas"
-        ordering = ["-fecha_creacion"]
+        verbose_name = "Detalle de Etapa"
+        verbose_name_plural = "Detalles de Etapas"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["detalle", "etapa_servicio"],
+                name="uq_detalle_etapa"
+            )
+        ]
+        indexes = [
+            models.Index(fields=["estacion"]),
+        ]
 
     def __str__(self):
-        return f"Reserva #{self.id} — {self.cliente}"
+        estacion_nombre = self.estacion.nombre if self.estacion else "Sin estación"
+        return f"{self.detalle} — {self.etapa_servicio.nombre} en {estacion_nombre}"
 
 
 class Turno(models.Model):
@@ -81,16 +107,6 @@ class Turno(models.Model):
         related_name="turnos",
         verbose_name="cliente"
     )
-    profesional = models.ForeignKey(
-        "Profesional", on_delete=models.CASCADE,
-        related_name="turnos",
-        verbose_name="profesional"
-    )
-    estacion = models.ForeignKey(
-        "Estacion", on_delete=models.CASCADE,
-        related_name="turnos",
-        verbose_name="estación"
-    )
     fecha_hora = models.DateTimeField("fecha y hora")
     hora_fin_estimada = models.DateTimeField("hora de fin estimada", blank=True, null=True)
     estado = models.CharField(
@@ -98,15 +114,9 @@ class Turno(models.Model):
     )
     observaciones = models.TextField("observaciones", blank=True)
     fecha_creacion = models.DateTimeField("fecha de creación", auto_now_add=True)
-    reserva = models.ForeignKey(
-        Reserva, on_delete=models.SET_NULL,
-        null=True, blank=True,
-        related_name="turnos_reserva",
-        verbose_name="reserva asociada"
-    )
-    orden = models.PositiveSmallIntegerField(
-        "orden en la reserva", default=0,
-        help_text="Posición del turno dentro de la secuencia de la reserva"
+    token = models.UUIDField(
+        "token de autogestión", default=uuid.uuid4,
+        unique=True, editable=False
     )
 
     servicios = models.ManyToManyField(
@@ -130,7 +140,7 @@ class Turno(models.Model):
         if not self.fecha_hora or not self.hora_fin_estimada:
             return
 
-        # 1. Validación de Horario de Atención
+        # Validación de Horario de Atención
         dia_semana = self.fecha_hora.weekday()
         horario = HorarioAtencion.objects.filter(dia_semana=dia_semana).first()
         
@@ -142,37 +152,6 @@ class Turno(models.Model):
         
         if hora_inicio < horario.hora_apertura or hora_fin > horario.hora_cierre:
             raise ValidationError(f"El turno debe estar dentro del horario de atención: {horario.hora_apertura} a {horario.hora_cierre}.")
-
-        # 2. Validación de disponibilidad del Profesional
-        overlapping_prof = Turno.objects.filter(
-            profesional=self.profesional,
-            fecha_hora__lt=self.hora_fin_estimada,
-            hora_fin_estimada__gt=self.fecha_hora
-        ).exclude(pk=self.pk).exclude(estado__in=["cancelado", "completado"])
-        
-        if overlapping_prof.exists():
-            raise ValidationError("El profesional ya tiene un turno asignado en ese horario.")
-
-        # 3. Validación de disponibilidad de la Estación
-        if hasattr(self, 'estacion') and self.estacion_id:
-            overlapping_est = Turno.objects.filter(
-                estacion=self.estacion,
-                fecha_hora__lt=self.hora_fin_estimada,
-                hora_fin_estimada__gt=self.fecha_hora
-            ).exclude(pk=self.pk).exclude(estado__in=["cancelado", "completado"])
-            
-            if overlapping_est.exists():
-                raise ValidationError("La estación seleccionada ya está ocupada en ese horario.")
-
-        # 4. Validación de disponibilidad del Cliente
-        overlapping_cliente = Turno.objects.filter(
-            cliente=self.cliente,
-            fecha_hora__lt=self.hora_fin_estimada,
-            hora_fin_estimada__gt=self.fecha_hora
-        ).exclude(pk=self.pk).exclude(estado__in=["cancelado", "completado"])
-        
-        if overlapping_cliente.exists():
-            raise ValidationError("El cliente ya tiene otro turno reservado en este mismo horario.")
 
     @property
     def total_servicios(self):

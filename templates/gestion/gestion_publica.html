@@ -22,7 +22,7 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <small class="text-white-50 fw-bold uppercase">Portal de Autogestión</small>
-                        <h3 class="fw-bold mb-0">Tus Turnos Agendados</h3>
+                        <h3 class="fw-bold mb-0">Tu Turno Agendado</h3>
                     </div>
                     <span class="fs-2"><i class="bi bi-shield-lock-fill text-success"></i></span>
                 </div>
@@ -35,16 +35,16 @@
                         <i class="bi bi-person-circle fs-2"></i>
                     </div>
                     <div>
-                        <h5 class="fw-bold mb-0">{{ reserva.cliente.nombre }} {{ reserva.cliente.apellido }}</h5>
-                        <small class="text-muted"><i class="bi bi-telephone"></i> {{ reserva.cliente.telefono }}</small>
+                        <h5 class="fw-bold mb-0">{{ turno.cliente.nombre }} {{ turno.cliente.apellido }}</h5>
+                        <small class="text-muted"><i class="bi bi-telephone"></i> {{ turno.cliente.telefono }}</small>
                     </div>
                 </div>
 
-                <!-- LISTADO DE TURNOS -->
-                <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-list-check"></i> Detalle de Turnos Agrupados:</h5>
+                <!-- LISTADO DE DETALLES DEL TURNO -->
+                <h5 class="fw-bold text-secondary mb-3"><i class="bi bi-list-check"></i> Detalle de Servicios:</h5>
                 
                 <div class="mb-4">
-                    {% for t in turnos %}
+                    {% for dt in detalles %}
                     <div class="card border border-light-subtle rounded-4 mb-3 shadow-sm overflow-hidden" style="transition: transform 0.2s ease;">
                         <div class="card-body p-4">
                             <div class="d-md-flex justify-content-between align-items-center">
@@ -52,45 +52,47 @@
                                 <!-- Izquierda: Detalle e Iconos -->
                                 <div>
                                     <div class="d-flex align-items-center mb-2">
-                                        <h6 class="fw-bold text-dark mb-0 me-3">
-                                            {% for s in t.servicios.all %}{{ s.nombre }}{% if not forloop.last %}, {% endif %}{% endfor %}
-                                        </h6>
-                                        <!-- Badges de Estado -->
-                                        {% if t.estado == 'pendiente' %}
+                                        <h6 class="fw-bold text-dark mb-0 me-3">{{ dt.servicio.nombre }}</h6>
+                                        <!-- Badges de Estado general del turno -->
+                                        {% if turno.estado == 'pendiente' %}
                                             <span class="badge bg-warning-subtle text-warning border border-warning rounded-pill px-2">Pendiente</span>
-                                        {% elif t.estado == 'completado' %}
+                                        {% elif turno.estado == 'completado' %}
                                             <span class="badge bg-success-subtle text-success border border-success rounded-pill px-2">Completado</span>
-                                        {% elif t.estado == 'cancelado' %}
+                                        {% elif turno.estado == 'cancelado' %}
                                             <span class="badge bg-danger-subtle text-danger border border-danger rounded-pill px-2">Cancelado</span>
-                                        {% elif t.estado == 'en_curso' %}
+                                        {% elif turno.estado == 'en_curso' %}
                                             <span class="badge bg-info-subtle text-info border border-info rounded-pill px-2">En Curso</span>
-                                        {% elif t.estado == 'por_reprogramar' %}
+                                        {% elif turno.estado == 'por_reprogramar' %}
                                             <span class="badge bg-secondary-subtle text-secondary border border-secondary rounded-pill px-2">Por Reprogramar</span>
                                         {% endif %}
                                     </div>
                                     
                                     <p class="text-muted mb-0 small">
-                                        <i class="bi bi-person-fill"></i> Profesional: <strong>{{ t.profesional.nombre }} {{ t.profesional.apellido }}</strong>
-                                        <span class="mx-1">|</span>
-                                        <i class="bi bi-geo-alt-fill"></i> Estación: <strong>{{ t.estacion.nombre }}</strong>
+                                        <i class="bi bi-person-fill"></i> Profesional: <strong>{{ dt.profesional.nombre }} {{ dt.profesional.apellido }}</strong>
+                                    </p>
+                                    <p class="text-muted mb-0 small">
+                                        <i class="bi bi-geo-alt-fill"></i> Estaciones:
+                                        {% for etapa in dt.etapas_asignadas.all %}
+                                            <strong>{{ etapa.etapa_servicio.nombre }}</strong>: {{ etapa.estacion.nombre|default:"Espera" }}{% if not forloop.last %} | {% endif %}
+                                        {% endfor %}
                                     </p>
                                     <p class="text-muted mb-0 small mt-1">
-                                        <i class="bi bi-clock-fill"></i> Horario estimado: {{ t.fecha_hora|date:"H:i" }}hs a {{ t.hora_fin_estimada|date:"H:i" }}hs
+                                        <i class="bi bi-clock-fill"></i> Horario: {{ dt.hora_inicio|time:"H:i" }}hs a {{ dt.hora_fin|time:"H:i" }}hs
                                     </p>
                                 </div>
 
-                                <!-- Derecha: Fecha y Acciones del Turno -->
+                                <!-- Derecha: Fecha -->
                                 <div class="text-md-end mt-3 mt-md-0">
                                     <div class="bg-dark text-white rounded-3 px-3 py-2 text-center d-inline-block">
-                                        <small class="d-block text-white-50 text-uppercase fw-bold" style="font-size: 0.65rem;">{{ t.fecha_hora|date:"M" }}</small>
-                                        <span class="d-block fw-bold fs-4 lineHeight-none">{{ t.fecha_hora|date:"d" }}</span>
-                                        <small class="d-block text-white-50 fw-bold" style="font-size: 0.65rem;">{{ t.fecha_hora|date:"Y" }}</small>
+                                        <small class="d-block text-white-50 text-uppercase fw-bold" style="font-size: 0.65rem;">{{ turno.fecha_hora|date:"M" }}</small>
+                                        <span class="d-block fw-bold fs-4 lineHeight-none">{{ turno.fecha_hora|date:"d" }}</span>
+                                        <small class="d-block text-white-50 fw-bold" style="font-size: 0.65rem;">{{ turno.fecha_hora|date:"Y" }}</small>
                                     </div>
                                     
-                                    {% if t.estado == 'pendiente' or t.estado == 'por_reprogramar' %}
+                                    {% if turno.estado == 'pendiente' or turno.estado == 'por_reprogramar' %}
                                     <div class="mt-2">
-                                        <!-- Reprogramar Turno Individual -->
-                                        <a href="{% url 'reservar_publico' %}?repro_id={{ t.id }}&token={{ reserva.token }}" class="btn btn-sm btn-outline-dark rounded-pill px-3 fw-bold">
+                                        <!-- Reprogramar Turno -->
+                                        <a href="{% url 'reservar_publico' %}?repro_id={{ turno.id }}&token={{ turno.token }}" class="btn btn-sm btn-outline-dark rounded-pill px-3 fw-bold">
                                             <i class="bi bi-arrow-left-right me-1"></i> Reprogramar
                                         </a>
                                     </div>
@@ -110,17 +112,17 @@
                 <div class="d-flex justify-content-between align-items-center">
                     <div>
                         <small class="text-muted d-block">¿Ya no vas a poder asistir?</small>
-                        <span class="text-dark small">Podés cancelar la reserva completa de forma segura.</span>
+                        <span class="text-dark small">Podés cancelar el turno completo de forma segura.</span>
                     </div>
-                    <a href="{% url 'cancelar_reserva_publica' reserva.token %}" class="btn btn-outline-danger btn-lg rounded-3 fw-bold">
-                        <i class="bi bi-calendar-x me-2"></i> Cancelar Reserva
+                    <a href="{% url 'cancelar_turno_publico' turno.token %}" class="btn btn-outline-danger btn-lg rounded-3 fw-bold">
+                        <i class="bi bi-calendar-x me-2"></i> Cancelar Turno
                     </a>
                 </div>
                 {% else %}
                 <div class="alert alert-secondary border-0 rounded-4 text-center p-4">
                     <i class="bi bi-info-circle-fill text-secondary fs-2 mb-2 d-block"></i>
                     <h5 class="fw-bold text-dark">No tenés turnos activos</h5>
-                    <p class="text-muted mb-3">Todos tus turnos para esta reserva ya pasaron o fueron cancelados.</p>
+                    <p class="text-muted mb-3">Este turno ya fue completado o cancelado.</p>
                     <a href="{% url 'reservar_publico' %}" class="btn btn-dark rounded-pill px-4 fw-bold">
                         <i class="bi bi-plus-lg me-2"></i> Reservar Nuevo Turno
                     </a>

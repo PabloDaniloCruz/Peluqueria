@@ -26,6 +26,7 @@ def lista_profesionales(request):
     if query:
         from django.db.models import Q
         profesionales = profesionales.filter(
+            Q(dni__icontains=query) |
             Q(nombre__icontains=query) |
             Q(apellido__icontains=query) |
             Q(telefono__icontains=query) |

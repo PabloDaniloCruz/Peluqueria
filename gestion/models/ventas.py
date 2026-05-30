@@ -1,7 +1,7 @@
 from django.db import models
 from django.core.validators import MinValueValidator
 
-from .turnos import Turno
+from .turnos import Turno, DetalleTurno
 
 
 class Venta(models.Model):
@@ -70,3 +70,33 @@ class DetalleVentaProducto(models.Model):
     @property
     def subtotal(self):
         return self.cantidad * self.precio_unitario
+
+
+class ComisionDetalle(models.Model):
+    """Comisión individual por DetalleTurno en una Venta."""
+
+    venta = models.ForeignKey(
+        "Venta", on_delete=models.CASCADE,
+        related_name="comisiones",
+        verbose_name="venta"
+    )
+    detalle_turno = models.ForeignKey(
+        "DetalleTurno", on_delete=models.CASCADE,
+        related_name="comisiones",
+        verbose_name="detalle del turno"
+    )
+    profesional = models.ForeignKey(
+        "Profesional", on_delete=models.PROTECT,
+        verbose_name="profesional"
+    )
+    monto = models.DecimalField(
+        "monto", max_digits=10, decimal_places=2,
+        validators=[MinValueValidator(0)]
+    )
+
+    class Meta:
+        verbose_name = "Comisión por Detalle"
+        verbose_name_plural = "Comisiones por Detalle"
+
+    def __str__(self):
+        return f"Comisión {self.profesional} — ${self.monto}"

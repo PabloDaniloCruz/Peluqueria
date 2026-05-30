@@ -34,9 +34,9 @@ def facturacion(request):
     )
 
     if profesional_id:
-        ventas_qs = ventas_qs.filter(turno__profesional_id=profesional_id)
+        ventas_qs = ventas_qs.filter(turno__detalleturno__profesional_id=profesional_id).distinct()
 
-    ventas = list(ventas_qs.select_related('turno__profesional'))
+    ventas = list(ventas_qs.prefetch_related('turno__detalleturno_set__profesional'))
 
     # ─── Totales globales ─────────────────────────────────────────
     total_facturado = sum(v.total for v in ventas)
@@ -63,7 +63,7 @@ def facturacion(request):
 
     for prof in profesionales:
         # Ventas de turnos de este profesional
-        ventas_prof = [v for v in ventas if v.turno and v.turno.profesional_id == prof.id]
+        ventas_prof = [v for v in ventas if v.turno and v.comisiones.filter(profesional=prof).exists()]
         if not ventas_prof:
             continue
 
@@ -127,16 +127,17 @@ def facturacion(request):
         fecha_venta__date__gte=desde,
         fecha_venta__date__lte=hasta,
     ).select_related(
-        'turno__profesional',
         'turno__cliente',
         'cliente',
     ).prefetch_related(
         'detalles_productos__producto',
+        'turno__detalleturno_set__profesional',
         'turno__detalleturno_set__servicio',
+        'comisiones',
     ).order_by('-fecha_venta')
 
     if profesional_id:
-        detalle_ventas = detalle_ventas.filter(turno__profesional_id=profesional_id)
+        detalle_ventas = detalle_ventas.filter(turno__detalleturno__profesional_id=profesional_id).distinct()
 
     # ─── Datos para Chart.js (JSON) ───────────────────────────────
     def to_float(v):

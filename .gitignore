@@ -24,3 +24,6 @@ Thumbs.db
 
 # Temp and test files
 test_output.txt
+
+# SDD artifacts
+.atl/

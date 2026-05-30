@@ -100,11 +100,11 @@ MAX_OPCIONES = 8   # Máximo de resultados por categoría
 
 ### 🔗 Magic Links — Autogestión del Cliente
 
-Cada reserva genera un **token UUID único** (`Reserva.token`) que permite al cliente gestionar sus turnos **sin necesidad de registrarse ni iniciar sesión**:
+Cada turno genera un **token UUID único** (`Turno.token`) que permite al cliente gestionar sus turnos **sin necesidad de registrarse ni iniciar sesión**:
 
 | Funcionalidad | URL |
 |---------------|-----|
-| **Ver estado de la reserva** | `/reservas/publica/gestion/<token>/` |
+| **Ver estado del turno** | `/reservas/publica/gestion/<token>/` |
 | **Cancelar turnos** | `/reservas/publica/gestion/<token>/cancelar/` |
 | **Reprogramar turnos** | Redirige al wizard público con datos pre-cargados vía `?repro_id=X&token=Y` |
 
@@ -191,7 +191,7 @@ Al facturar un turno (`/turno/<id>/facturar/`):
    - Mercado Pago
 3. Se pueden agregar **productos vendidos** al cliente (descuenta stock automáticamente con validación).
 4. Se pueden registrar **insumos consumidos** durante el servicio (descuenta stock automáticamente con validación).
-5. Se calcula la **comisión del profesional** según su `porcentaje_comision` (default 35%). La comisión se congela en `Venta.comision` para preservar el dato histórico.
+5. Se calcula la **comisión del profesional** por cada `DetalleTurno` (`ComisionDetalle`), según su `porcentaje_comision` (default 35%). Un signal `post_save` de `Venta` crea automáticamente las comisiones como safety net para code paths que no pasen por `facturar_turno`.
 6. Se utiliza **bloqueo pesimista** (`select_for_update`) para evitar doble facturación concurrente.
 
 #### Venta Libre (Mostrador)
@@ -384,7 +384,7 @@ El sistema implementa tres niveles de acceso:
 | **Transacciones Atómicas** | Todo flujo de reserva y facturación envuelto en `transaction.atomic()`. |
 | **Double-Checked Locking** | El control de saturación (máx. 2 turnos) se valida preventivamente en la API de disponibilidad y luego definitivamente dentro de la transacción atómica de confirmación. |
 | **Magic Links (UUID)** | `Reserva.token` (UUID4 auto-generado) habilita autogestión sin autenticación. |
-| **Comisiones Congeladas** | La comisión se calcula al facturar y se guarda en `Venta.comision`, protegiendo el dato histórico ante cambios futuros del porcentaje del profesional. |
+| **Comisiones por Detalle** | Cada `DetalleTurno` genera un `ComisionDetalle` individual al facturar, con el monto y el profesional que lo atendió. `Venta.comision` conserva el total como agregado histórico. Un signal `post_save` actúa como safety net. |
 | **Localización de Zona Horaria** | `timezone.localtime()` en todas las vistas que generan texto orientado al cliente (mensajes de WhatsApp, confirmaciones). |
 | **Inventario Dual** | Un único modelo `Producto` con flags `es_para_venta` / `es_insumo` cubre productos retail e insumos profesionales. |
 | **Auto-inicio** | El dashboard transiciona automáticamente turnos pendientes atrasados a `en_curso`. |
@@ -408,8 +408,10 @@ studio-salta/
 │   │   ├── inventario.py          # Producto, ConsumoInsumo
 │   │   ├── profesionales.py       # Profesional, HabilidadProfesional
 │   │   ├── servicios.py           # Servicio, Estacion, HorarioAtencion, CierreExcepcional
-│   │   ├── turnos.py              # Turno, Reserva, DetalleTurno
-│   │   └── ventas.py              # Venta, DetalleVentaProducto
+│   │   ├── turnos.py              # Turno, DetalleTurno, DetalleEtapa
+│   │   └── ventas.py              # Venta, DetalleVentaProducto, ComisionDetalle
+│   │
+│   ├── signals.py                 # Signals: auto-creación de comisiones (post_save Venta)
 │   │
 │   ├── views/                     # Vistas organizadas por dominio
 │   │   ├── api.py                 # APIs legacy (horarios, búsqueda clientes)
@@ -429,6 +431,7 @@ studio-salta/
 │   ├── tests/                     # Tests unitarios
 │   │   ├── test_concurrencia.py   # Concurrencia: booking simultáneo, stock race conditions
 │   │   ├── test_dashboard.py      # Dashboard: filtros, estados, contadores
+│   │   ├── test_detalle_etapa.py  # DetalleEtapa: asignación de estación por etapa
 │   │   └── test_public_reserva.py # Reserva pública: wizard, saturación, Magic Links
 │   │
 │   ├── api_disponibilidad.py      # Motor de disponibilidad (bitmask-based, 416 líneas)
@@ -499,16 +502,21 @@ studio-salta/
 
 ## 🧪 Tests
 
-El proyecto incluye **3 módulos de tests** organizados en `gestion/tests/`:
+El proyecto incluye **4 módulos de tests** organizados en `gestion/tests/`:
 
-### Tests de Concurrencia (`test_concurrencia.py`)
-- Booking simultáneo del mismo profesional por dos threads → solo uno debe tener éxito.
+### Tests de DetalleTurno y Concurrencia (`test_concurrencia.py`)
+- Creación atómica de 1 Turno con múltiples DetalleTurno con distintos profesionales y servicios.
 - Validación de stock bajo concurrencia → no permite vender más de lo disponible con rollback.
 
 ### Tests de Dashboard (`test_dashboard.py`)
 - Turnos cancelados se muestran correctamente.
 - Filtro por estado `cancelado` funciona.
 - Filtro por estado `pendiente` funciona.
+
+### Tests de DetalleEtapa (`test_detalle_etapa.py`)
+- Asignación correcta de estaciones por etapa en la creación del turno.
+- Verificación de que `DetalleEtapa.hora_inicio` y `hora_fin` se calculan correctamente.
+- Validación de unicidad: no pueden duplicarse `detalle + etapa_servicio`.
 
 ### Tests de Reserva Pública (`test_public_reserva.py`)
 - El wizard público carga sin autenticación.
@@ -582,29 +590,34 @@ python manage.py migrate
 
 ---
 
-## 📐 Modelo de Datos (16 modelos)
+## 📐 Modelo de Datos (17 modelos)
 
 ```mermaid
 erDiagram
     Cliente ||--o{ Turno : tiene
     Cliente ||--o{ FichaTecnica : tiene
     Cliente ||--o{ Venta : "venta libre"
-    Profesional ||--o{ Turno : atiende
     Profesional }o--o{ Servicio : "habilidades (via HabilidadProfesional)"
     Profesional ||--o| User : "cuenta opcional"
-    Estacion ||--o{ Turno : ocupa
-    Reserva ||--o{ Turno : agrupa
+    Profesional ||--o{ DetalleTurno : atiende
+    Profesional ||--o{ ComisionDetalle : recibe
+    Estacion ||--o{ DetalleEtapa : asigna
     Turno ||--o{ DetalleTurno : incluye
-    Servicio ||--o{ DetalleTurno : detalla
-    Servicio ||--o{ EtapaServicio : contiene
-    Turno ||--o| Venta : factura
     Turno ||--o{ ConsumoInsumo : consume
     Turno ||--o{ FichaTecnica : registra
+    Servicio ||--o{ DetalleTurno : detalla
+    Servicio ||--o{ EtapaServicio : contiene
+    DetalleTurno ||--o{ DetalleEtapa : desglosa
+    DetalleTurno ||--o{ ComisionDetalle : genera
+    DetalleEtapa }o--|| EtapaServicio : "asigna etapa"
+    Venta |o--|| Turno : factura
     Venta ||--o{ DetalleVentaProducto : vende
+    Venta ||--o{ ComisionDetalle : desglosa
     Producto ||--o{ DetalleVentaProducto : vendido
     Producto ||--o{ ConsumoInsumo : consumido
 
     Cliente {
+        string dni UK
         string nombre
         string apellido
         string telefono UK
@@ -612,19 +625,16 @@ erDiagram
         bool activo
         date fecha_registro
     }
-    Reserva {
-        uuid token UK
-        datetime fecha_creacion
-        string observaciones
-    }
     Turno {
         datetime fecha_hora
         datetime hora_fin_estimada
         string estado
-        int orden
+        uuid token UK
         string observaciones
+        datetime fecha_creacion
     }
     Profesional {
+        string dni UK
         string nombre
         string apellido
         string telefono
@@ -692,7 +702,23 @@ erDiagram
     DetalleTurno {
         FK turno
         FK servicio
+        FK profesional
         decimal precio_real
+        datetime hora_inicio
+        datetime hora_fin
+    }
+    DetalleEtapa {
+        FK detalle
+        FK etapa_servicio
+        FK estacion
+        datetime hora_inicio
+        datetime hora_fin
+    }
+    ComisionDetalle {
+        FK venta
+        FK detalle_turno
+        FK profesional
+        decimal monto
     }
     DetalleVentaProducto {
         FK venta

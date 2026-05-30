@@ -4,6 +4,10 @@ from django.db import models
 class Cliente(models.Model):
     """Datos personales e histórico de fidelidad del cliente."""
 
+    dni = models.CharField(
+        "DNI", max_length=15, unique=True, blank=True, null=True,
+        help_text="Documento Nacional de Identidad (opcional para extranjeros)"
+    )
     nombre = models.CharField("nombre", max_length=100)
     apellido = models.CharField("apellido", max_length=100)
     telefono = models.CharField("teléfono", max_length=20, blank=True)

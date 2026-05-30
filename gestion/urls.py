@@ -12,9 +12,9 @@ urlpatterns = [
     path('reservas/nueva/', views.reservar_turno_interno, name='reservar_interno'),
     path('reservas/reprogramar/<int:pk>/', views.reprogramar_turno, name='reprogramar_turno'),
     path('reservas/publica/', views.reservar_turno_publico, name='reservar_publico'),
-    path('reservas/publica/confirmacion/<uuid:token>/', views.confirmacion_reserva_publica, name='confirmacion_reserva_publica'),
-    path('reservas/publica/gestion/<uuid:token>/', views.gestion_reserva_publica, name='gestion_reserva_publica'),
-    path('reservas/publica/gestion/<uuid:token>/cancelar/', views.cancelar_reserva_publica, name='cancelar_reserva_publica'),
+    path('turnos/publica/confirmacion/<uuid:token>/', views.confirmacion_turno_publico, name='confirmacion_turno_publico'),
+    path('turnos/publica/gestion/<uuid:token>/', views.gestion_turno_publico, name='gestion_turno_publico'),
+    path('turnos/publica/gestion/<uuid:token>/cancelar/', views.cancelar_turno_publico, name='cancelar_turno_publico'),
 
     path('turno/<int:turno_id>/cancelar/', views.cancelar_turno, name='cancelar_turno'),
     path('turno/<int:turno_id>/iniciar/', views.iniciar_turno, name='iniciar_turno'),

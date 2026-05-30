@@ -66,15 +66,17 @@ document.addEventListener('DOMContentLoaded', function () {
         const inpN = document.getElementById('inp_nombre');
         const inpA = document.getElementById('inp_apellido');
         const inpT = document.getElementById('inp_telefono');
+        const inpD = document.getElementById('inp_dni');
 
         if (cliId) cliId.value = c.id;
         if (inpN) inpN.value = c.nombre;
         if (inpA) inpA.value = c.apellido;
         if (inpT) inpT.value = c.telefono;
+        if (inpD) inpD.value = c.dni || '';
         if (resultsDiv) resultsDiv.style.display = 'none';
         if (searchInput) searchInput.value = `${c.nombre} ${c.apellido}`;
 
-        ['inp_nombre', 'inp_apellido', 'inp_telefono'].forEach(id => {
+        ['inp_nombre', 'inp_apellido', 'inp_telefono', 'inp_dni'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.classList.add('bg-light');
         });
@@ -248,6 +250,7 @@ document.addEventListener('DOMContentLoaded', function () {
         // Leer datos ingresados manualmente
         const nombre = document.getElementById('inp_nombre') ? document.getElementById('inp_nombre').value.trim() : '';
         const apellido = document.getElementById('inp_apellido') ? document.getElementById('inp_apellido').value.trim() : '';
+        const dni = document.getElementById('inp_dni') ? document.getElementById('inp_dni').value.trim() : '';
         const telefono = document.getElementById('inp_telefono') ? document.getElementById('inp_telefono').value.trim() : '';
 
         if (!fecha) {
@@ -256,8 +259,12 @@ document.addEventListener('DOMContentLoaded', function () {
         }
 
         if (CONFIG.mode === 'public') {
-            if (!nombre || !apellido || !telefono) {
-                mostrarError('Por favor, completá tu nombre, apellido y teléfono de WhatsApp.');
+            if (!nombre || !apellido || !dni) {
+                mostrarError('Por favor, completá tu nombre, apellido y DNI.');
+                return;
+            }
+            if (!telefono) {
+                mostrarError('Por favor, completá tu teléfono de WhatsApp.');
                 return;
             }
         }
@@ -280,6 +287,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 servicios: servicios,
                 nombre: nombre,
                 apellido: apellido,
+                dni: dni,
                 telefono: telefono
             })
         })
@@ -372,11 +380,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const opcionElegida = lista[idx];
 
         const obsInput = document.getElementById('inp_observaciones');
+        const dniInput = document.getElementById('inp_dni');
         const payload = {
             fecha: document.getElementById('inp_fecha').value,
             cliente_id: document.getElementById('cliente_id').value || null,
             nombre: document.getElementById('inp_nombre').value,
             apellido: document.getElementById('inp_apellido').value,
+            dni: dniInput ? dniInput.value.trim() : '',
             telefono: document.getElementById('inp_telefono').value,
             observaciones: obsInput ? obsInput.value.trim() : '',
             opcion: opcionElegida,
@@ -515,6 +525,12 @@ document.addEventListener('DOMContentLoaded', function () {
         // 2. Seleccionar servicios
         p.servicios_ids.forEach(sid => toggleServicio(sid));
 
+        // 2.5 Cargar DNI si existe
+        const dniInp = document.getElementById('inp_dni');
+        if (dniInp && p.dni) {
+            dniInp.value = p.dni;
+        }
+        
         // 3. Cargar observaciones si existen
         const obsInput = document.getElementById('inp_observaciones');
         if (obsInput && p.observaciones) {
