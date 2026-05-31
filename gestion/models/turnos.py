@@ -142,16 +142,19 @@ class Turno(models.Model):
 
         # Validación de Horario de Atención
         dia_semana = self.fecha_hora.weekday()
-        horario = HorarioAtencion.objects.filter(dia_semana=dia_semana).first()
-        
-        if not horario or not horario.abierto:
+        horarios = HorarioAtencion.objects.filter(dia_semana=dia_semana, abierto=True)
+
+        if not horarios:
             raise ValidationError("La peluquería está cerrada en ese día de la semana.")
-            
+
         hora_inicio = self.fecha_hora.time()
         hora_fin = self.hora_fin_estimada.time()
-        
-        if hora_inicio < horario.hora_apertura or hora_fin > horario.hora_cierre:
-            raise ValidationError(f"El turno debe estar dentro del horario de atención: {horario.hora_apertura} a {horario.hora_cierre}.")
+
+        if not any(h.hora_apertura <= hora_inicio and hora_fin <= h.hora_cierre for h in horarios):
+            horarios_str = ", ".join(f"{h.hora_apertura} a {h.hora_cierre}" for h in horarios)
+            raise ValidationError(
+                f"El turno debe estar dentro de algún horario de atención: {horarios_str}."
+            )
 
     @property
     def total_servicios(self):

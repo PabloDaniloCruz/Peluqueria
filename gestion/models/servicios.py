@@ -36,6 +36,7 @@ class EtapaServicio(models.Model):
     TIPO_ESTACION_CHOICES = [
         ('estacion', 'Estación de Trabajo (Silla)'),
         ('lavacabeza', 'Lavacabezas'),
+        ('manicura', 'Puesto de Manicura'),
         ('ninguna', 'Ninguna / Sala de Espera'),
     ]
 
@@ -71,6 +72,7 @@ class Estacion(models.Model):
     TIPO_CHOICES = [
         ("estacion", "Estación de Trabajo"),
         ("lavacabeza", "Lava-Cabezas"),
+        ("manicura", "Puesto de Manicura"),
     ]
 
     nombre = models.CharField("nombre", max_length=50, unique=True)
@@ -101,6 +103,20 @@ class HorarioAtencion(models.Model):
         verbose_name = "Horario de Atención"
         verbose_name_plural = "Horarios de Atención"
         ordering = ["dia_semana", "hora_apertura"]
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+
+        qs = HorarioAtencion.objects.filter(dia_semana=self.dia_semana, abierto=True)
+        if self.pk:
+            qs = qs.exclude(pk=self.pk)
+
+        for otro in qs:
+            if self.hora_apertura < otro.hora_cierre and self.hora_cierre > otro.hora_apertura:
+                raise ValidationError(
+                    f"El horario {self.hora_apertura}-{self.hora_cierre} se solapa con "
+                    f"el existente {otro.hora_apertura}-{otro.hora_cierre} para {self.get_dia_semana_display()}."
+                )
 
     def __str__(self):
         estado = "Abierto" if self.abierto else "Cerrado"

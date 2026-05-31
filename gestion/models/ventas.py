@@ -63,6 +63,12 @@ class DetalleVentaProducto(models.Model):
     class Meta:
         verbose_name = "Detalle de Venta de Producto"
         verbose_name_plural = "Detalles de Venta de Productos"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["venta", "producto"],
+                name="uq_detalle_venta_producto"
+            )
+        ]
 
     def __str__(self):
         return f"{self.cantidad} x {self.producto.nombre}"
@@ -97,6 +103,12 @@ class ComisionDetalle(models.Model):
     class Meta:
         verbose_name = "Comisión por Detalle"
         verbose_name_plural = "Comisiones por Detalle"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["venta", "detalle_turno"],
+                name="uq_comision_venta_detalle"
+            )
+        ]
 
     def __str__(self):
         return f"Comisión {self.profesional} — ${self.monto}"

@@ -167,8 +167,9 @@ El modelo de datos se estructura en 5 submódulos (**17 tablas**):
 | Atributo | Razón |
 |----------|-------|
 | `dia_semana` (0-6) | Lunes a domingo. No se usan fechas porque el horario es semanal, no calendario. |
-| `hora_apertura`, `hora_cierre` | Rango de operación. **No se guarda duración:** cada día puede tener distinto horario (ej. sábados medio día). |
+| `hora_apertura`, `hora_cierre` | Rango de operación. **Soporta horarios discontinuos:** se pueden definir múltiples bloques para el mismo día (ej. 9-13 y 16-20) siempre que **no se solapen**. El `clean()` del modelo rechaza solapamientos automáticamente. |
 | `abierto` (default=True) | Días de descanso semanal sin borrar el registro. |
+| *Validación clean(): sin solapamiento* | No es una constraint de DB, pero el `clean()` del modelo rechaza horarios que se pisen para el mismo día. |
 
 ---
 
@@ -196,6 +197,7 @@ El modelo de datos se estructura en 5 submódulos (**17 tablas**):
 | `cliente_id` (FK → Cliente) | Quién viene. |
 | `fecha_hora` | Cuándo empieza. Es el punto de anclaje del turno. |
 | `hora_fin_estimada` (nullable) | **Por qué se calcula:** Es la suma de las duraciones de todos los servicios contratados. Se guarda para consultas rápidas de agenda sin tener que sumar etapas cada vez. |
+| *Validación clean(): multi-horario* | El `clean()` valida que el turno **encaje en algún bloque** de `HorarioAtencion` para ese día. Soporta horarios discontinuos (ej. si el local abre 9-13 y 16-20, un turno a las 17:00 pasa la validación). |
 | `estado` (pendiente / en_curso / completado / cancelado / por_reprogramar) | Ciclo de vida del turno. **por_reprogramar** existe porque los cierres excepcionales pueden forzar a mover turnos sin cancelarlos. |
 | `observaciones` | Notas del staff sobre el turno (ej. "cliente pidió cambiar a silla cerca de la ventana"). |
 | `fecha_creacion` (auto_now_add) | Cuándo se registró el turno. Útil para detectar reservas de último momento vs. programadas. |
@@ -272,6 +274,7 @@ Mientras que `EtapaServicio` es la **plantilla** (la receta), `DetalleEtapa` es 
 | `producto_id` (FK → Producto, RESTRICT) | **RESTRICT** para no borrar productos con ventas registradas. |
 | `cantidad` (>=1) | Cuántas unidades se llevó. |
 | `precio_unitario` | **Congelado en el momento de la venta.** El precio del producto puede cambiar después; este campo preserva el valor histórico. |
+| *UniqueConstraint(venta, producto)* | **Por qué:** Evita que un mismo producto aparezca en dos filas separadas de la misma venta. Si el cliente lleva 3 unidades del mismo producto, se suma en `cantidad` en lugar de crear filas duplicadas. |
 
 ---
 
@@ -285,6 +288,7 @@ Mientras que `EtapaServicio` es la **plantilla** (la receta), `DetalleEtapa` es 
 | `detalle_turno_id` (FK → DetalleTurno, CASCADE) | **Qué servicio específico generó esta comisión.** Sin esto, no sabrías si María cobró por el lavado o por el corte. |
 | `profesional_id` (FK → Profesional, PROTECT) | A quién se le paga. **PROTECT** para integridad histórica. |
 | `monto` (>=0) | Valor congelado: `DetalleTurno.precio_real × Profesional.porcentaje_comision / 100`. No se recalcula, para que cambios futuros en el porcentaje no alteren comisiones ya liquidadas. |
+| *UniqueConstraint(venta, detalle_turno)* | **Por qué:** Garantiza que un mismo detalle de turno no se comisione dos veces en la misma venta. Cada servicio se liquida una sola vez. |
 
 ---
 
@@ -315,6 +319,7 @@ Mientras que `EtapaServicio` es la **plantilla** (la receta), `DetalleEtapa` es 
 | `turno_id` (FK → Turno, CASCADE) | En qué turno se consumió. CASCADE porque si el turno se elimina (ej. cancelado antes de empezar), el consumo no ocurrió. |
 | `producto_id` (FK → Producto, RESTRICT) | Qué insumo. **RESTRICT** para no borrar productos con consumos históricos. |
 | `cantidad_usada` (>=0.01) | Cantidad exacta. En gramos, mililitros o unidades según `Producto.unidad_medida`. |
+| *UniqueConstraint(turno, producto)* | **Por qué:** Un mismo insumo se registra una sola vez por turno. Si se usan 45g de tinte, se guarda en `cantidad_usada` en lugar de crear dos filas de 22.5g. Simplifica el control de stock. |
 
 ---
 
@@ -330,7 +335,13 @@ El diseño relacional y las restricciones del sistema ejecutan las siguientes po
 
 4. **Congelación de Precios e Historial de Comisiones:** `DetalleTurno.precio_real`, `ComisionDetalle.monto` y `Venta.comision` guardan valores finales. Los cambios futuros en el catálogo de servicios o porcentajes de comisión **nunca** alteran el histórico.
 
-5. **Restricciones de Borrado Seguro:**
+5. **Prevención de Duplicados a Nivel de Schema:** Cuatro constraints `UniqueConstraint` protegen contra datos redundantes:
+   - `(venta, producto)` en `DetalleVentaProducto` — evitar que un producto se facture en dos filas separadas.
+   - `(venta, detalle_turno)` en `ComisionDetalle` — cada servicio se comisiona una sola vez.
+   - `(turno, producto)` en `ConsumoInsumo` — un insumo se registra una vez por turno, sumando su cantidad.
+   - Validación por `clean()` en `HorarioAtencion` — horarios del mismo día no pueden solaparse.
+
+6. **Restricciones de Borrado Seguro:**
    - `CASCADE` en jerarquías dependientes (Cliente → Turno, Turno → DetalleTurno, Venta → DetalleVenta).
    - `PROTECT` en recursos con histórico (Profesional en DetalleTurno, Estación en DetalleEtapa).
    - `RESTRICT` en productos con transacciones registradas.

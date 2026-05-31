@@ -54,6 +54,12 @@ class ConsumoInsumo(models.Model):
     class Meta:
         verbose_name = "Consumo de Insumo"
         verbose_name_plural = "Consumos de Insumos"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["turno", "producto"],
+                name="uq_consumo_turno_producto"
+            )
+        ]
 
     def __str__(self):
         return f"{self.cantidad_usada} {self.producto.get_unidad_medida_display()} de {self.producto.nombre} en Turno #{self.turno.id}"
