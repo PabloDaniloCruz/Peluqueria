@@ -157,26 +157,30 @@ def reservar_turno_interno(request):
                 for bloque in opcion['bloques']:
                     servicio = Servicio.objects.get(id=bloque['servicio_id'])
                     profesional_obj = Profesional.objects.get(id=bloque['profesional_id'])
-                    h_inicio = datetime.strptime(bloque['inicio'], '%H:%M').time()
-                    h_fin = datetime.strptime(bloque['fin'], '%H:%M').time()
+                    h_inicio_time = datetime.strptime(bloque['inicio'], '%H:%M').time()
+                    h_fin_time = datetime.strptime(bloque['fin'], '%H:%M').time()
+                    hora_inicio_dt = timezone.make_aware(datetime.combine(fecha, h_inicio_time))
+                    hora_fin_dt = timezone.make_aware(datetime.combine(fecha, h_fin_time))
 
                     dt = DetalleTurno.objects.create(
                         turno=turno,
                         servicio=servicio,
                         profesional=profesional_obj,
                         precio_real=servicio.precio_sugerido,
-                        hora_inicio=h_inicio,
-                        hora_fin=h_fin,
+                        hora_inicio=hora_inicio_dt,
+                        hora_fin=hora_fin_dt,
                     )
 
                     # Crear DetalleEtapa por cada etapa del servicio
                     for etapa in bloque.get('estaciones_asignadas', []):
+                        e_inicio_time = datetime.strptime(etapa['hora_inicio'], '%H:%M').time()
+                        e_fin_time = datetime.strptime(etapa['hora_fin'], '%H:%M').time()
                         DetalleEtapa.objects.create(
                             detalle=dt,
                             etapa_servicio_id=etapa['etapa_servicio_id'],
                             estacion_id=etapa['estacion_id'] if etapa.get('estacion_id', -1) != -1 else None,
-                            hora_inicio=etapa['hora_inicio'],
-                            hora_fin=etapa['hora_fin'],
+                            hora_inicio=timezone.make_aware(datetime.combine(fecha, e_inicio_time)),
+                            hora_fin=timezone.make_aware(datetime.combine(fecha, e_fin_time)),
                         )
                     turnos_creados += 1
 
@@ -471,26 +475,30 @@ def confirmar_reserva_publica(request):
             for bloque in opcion['bloques']:
                 servicio = Servicio.objects.get(id=bloque['servicio_id'])
                 profesional_obj = Profesional.objects.get(id=bloque['profesional_id'])
-                h_inicio = datetime.strptime(bloque['inicio'], '%H:%M').time()
-                h_fin = datetime.strptime(bloque['fin'], '%H:%M').time()
+                h_inicio_time = datetime.strptime(bloque['inicio'], '%H:%M').time()
+                h_fin_time = datetime.strptime(bloque['fin'], '%H:%M').time()
+                hora_inicio_dt = timezone.make_aware(datetime.combine(fecha, h_inicio_time))
+                hora_fin_dt = timezone.make_aware(datetime.combine(fecha, h_fin_time))
 
                 dt = DetalleTurno.objects.create(
                     turno=turno,
                     servicio=servicio,
                     profesional=profesional_obj,
                     precio_real=servicio.precio_sugerido,
-                    hora_inicio=h_inicio,
-                    hora_fin=h_fin,
+                    hora_inicio=hora_inicio_dt,
+                    hora_fin=hora_fin_dt,
                 )
 
                 # Crear DetalleEtapa por cada etapa del servicio
                 for etapa in bloque.get('estaciones_asignadas', []):
+                    e_inicio_time = datetime.strptime(etapa['hora_inicio'], '%H:%M').time()
+                    e_fin_time = datetime.strptime(etapa['hora_fin'], '%H:%M').time()
                     DetalleEtapa.objects.create(
                         detalle=dt,
                         etapa_servicio_id=etapa['etapa_servicio_id'],
                         estacion_id=etapa['estacion_id'] if etapa.get('estacion_id', -1) != -1 else None,
-                        hora_inicio=etapa['hora_inicio'],
-                        hora_fin=etapa['hora_fin'],
+                        hora_inicio=timezone.make_aware(datetime.combine(fecha, e_inicio_time)),
+                        hora_fin=timezone.make_aware(datetime.combine(fecha, e_fin_time)),
                     )
                 turnos_creados += 1
 
