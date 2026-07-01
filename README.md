@@ -746,7 +746,6 @@ erDiagram
 | [`docs/DEPLOY_PRODUCCION.md`](docs/DEPLOY_PRODUCCION.md) | Guía paso a paso de deploy en PythonAnywhere (318 líneas) |
 | [`docs/der_report.md`](docs/der_report.md) | Reporte DER completo con diagrama Mermaid, 5 reglas de negocio y políticas de integridad referencial actualizadas |
 | [`docs/sistema_horarios.md`](docs/sistema_horarios.md) | Arquitectura del sistema de horarios y explicación del algoritmo bitmask |
-| [`docs/plan-eliminar-reserva.md`](docs/plan-eliminar-reserva.md) | Plan de migración para eliminar el modelo `Reserva` — mueve `profesional` y `estacion` a `DetalleTurno` |
 
 ---
 
