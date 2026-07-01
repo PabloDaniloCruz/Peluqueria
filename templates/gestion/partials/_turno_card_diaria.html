@@ -29,6 +29,9 @@
             <p class="card-text mb-1 ps-2 border-start border-secondary">
                 <strong>📋</strong> {{ detalle.servicio.nombre }}
                 <span class="text-muted">✂️</span> {{ detalle.profesional.nombre }}
+                {% if detalle.hora_inicio %}
+                    <span class="text-muted small">⏰</span> <span class="small">{{ detalle.hora_inicio|time:"H:i" }}{% if detalle.hora_fin %} - {{ detalle.hora_fin|time:"H:i" }}{% endif %}</span>
+                {% endif %}
                 {% for etapa in detalle.etapas_asignadas.all %}
                     <span class="text-muted">🪑</span> {{ etapa.etapa_servicio.nombre }} → {{ etapa.estacion.nombre|default:"Espera" }}{% if not forloop.last %}, {% endif %}
                 {% endfor %}
@@ -36,6 +39,12 @@
         {% empty %}
             <p class="card-text mb-1 text-muted small ps-2">Sin servicios</p>
         {% endfor %}
+
+        {% if turno.observaciones %}
+            <div class="small text-muted mb-2 ps-2 border-start border-info">
+                <i class="bi bi-chat-dots"></i> {{ turno.observaciones|truncatechars:100 }}
+            </div>
+        {% endif %}
 
         <div class="d-flex gap-2 flex-wrap">
             {% if turno.estado == 'pendiente' %}

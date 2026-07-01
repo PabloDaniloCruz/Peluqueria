@@ -234,6 +234,7 @@ El módulo de reportes (`/reportes/facturacion/`) ofrece:
 
 El **perfil del cliente** incluye:
 - Datos de contacto con botón WhatsApp directo
+- Fecha de registro (Cliente desde)
 - Historial completo de turnos
 - Fichas técnicas asociadas (fórmulas químicas, tratamientos)
 
@@ -254,6 +255,7 @@ La búsqueda funciona por nombre, apellido, teléfono y email.
 Cada profesional tiene:
 - **Habilidades** (M2M con Servicio vía `HabilidadProfesional`): Define qué servicios puede realizar.
 - **Porcentaje de comisión**: Se aplica automáticamente al facturar (default 35%, configurable 0-100%).
+- **Fecha de contratación**: Se muestra en el listado de profesionales (columna "Ingreso").
 - **Cuenta de usuario** (opcional): Se puede crear un `User` de Django asociado (`is_staff=True`) con credenciales propias para acceder al sistema.
 
 ---
@@ -352,13 +354,15 @@ Permite registrar feriados o cierres no programados. Soporta **día completo** o
 
 ### 📋 Fichas Técnicas
 
-Registro profesional de fórmulas químicas para tratamientos de coloración, asociados a un cliente y opcionalmente a un turno:
+Registro profesional de fórmulas químicas para tratamientos de coloración, asociados a un cliente y su turno:
 
 - Descripción del tratamiento
 - Fórmula química (proporciones, marcas, colores, tiempos de acción)
 - Observaciones
 
 Accesibles desde el perfil del cliente y creables desde un turno específico (`/turno/<id>/ficha/nueva/`).
+
+> 🏛️ **Decisión de modelo**: La FK `turno` en `FichaTecnica` usa **`CASCADE`** y **`NOT NULL`** — la ficha siempre se crea desde un turno y no tiene sentido sin él. Al eliminar el turno, la ficha se borra en cascada.
 
 ---
 
@@ -740,7 +744,7 @@ erDiagram
 | Documento | Contenido |
 |-----------|-----------|
 | [`docs/DEPLOY_PRODUCCION.md`](docs/DEPLOY_PRODUCCION.md) | Guía paso a paso de deploy en PythonAnywhere (318 líneas) |
-| [`docs/der_report.md`](docs/der_report.md) | Reporte DER completo con diagrama Mermaid y 5 reglas de negocio documentadas |
+| [`docs/der_report.md`](docs/der_report.md) | Reporte DER completo con diagrama Mermaid, 5 reglas de negocio y políticas de integridad referencial actualizadas |
 | [`docs/sistema_horarios.md`](docs/sistema_horarios.md) | Arquitectura del sistema de horarios y explicación del algoritmo bitmask |
 
 ---

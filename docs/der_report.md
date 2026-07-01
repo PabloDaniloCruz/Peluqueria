@@ -73,7 +73,7 @@ El modelo de datos se estructura en 5 submódulos (**17 tablas**):
 | Atributo | Razón |
 |----------|-------|
 | `cliente_id` (FK → Cliente) | La ficha pertenece al cliente, no al turno. Un cliente puede tener muchas fichas a lo largo del tiempo. |
-| `turno_id` (FK → Turno, nullable) | **Por qué nullable:** Una ficha puede cargarse fuera de un turno (ej. el cliente vino solo a consultar). **SET_NULL** al borrar el turno para no perder la fórmula histórica. |
+| `turno_id` (FK → Turno, NOT NULL) | **Por qué NOT NULL:** Desde la interfaz siempre se crea una ficha asociada a un turno (`crear_ficha_desde_turno`). No hay ruta para crear fichas sin turno. **CASCADE** al borrar el turno porque la ficha no tiene sentido sin él. |
 | `fecha_creacion` (auto_now_add) | Las fórmulas cambian con el tiempo (ej. mismo cliente, diferente marca de tinte). La fecha permite saber cuál es la más reciente. |
 | `descripcion` | Nombre del tratamiento (ej. "Retoque de raíces Tono 7.1") para identificarlo rápido sin leer la fórmula completa. |
 | `formula_quimica` | **El corazón del modelo.** Texto libre con la receta exacta (ej. "60g Tinte 7.1 + 60ml Oxidante 20V"). No se estructura porque cada marca y tratamiento tiene combinaciones impredecibles. |
@@ -345,7 +345,8 @@ El diseño relacional y las restricciones del sistema ejecutan las siguientes po
    - `CASCADE` en jerarquías dependientes (Cliente → Turno, Turno → DetalleTurno, Venta → DetalleVenta).
    - `PROTECT` en recursos con histórico (Profesional en DetalleTurno, Estación en DetalleEtapa).
    - `RESTRICT` en productos con transacciones registradas.
-   - `SET_NULL` en relaciones opcionales (User → Profesional, Turno → FichaTecnica).
+   - `SET_NULL` en relaciones opcionales (User → Profesional).
+   - `CASCADE` en jerarquías dependientes (Turno → FichaTecnica: la ficha no existe sin su turno).
 
 ---
 

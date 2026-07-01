@@ -14,7 +14,7 @@ class FichaTecnica(models.Model):
     )
     fecha_creacion = models.DateTimeField("fecha de creación", auto_now_add=True)
     turno = models.ForeignKey(
-        "Turno", on_delete=models.SET_NULL, null=True, blank=True,
+        "Turno", on_delete=models.CASCADE,
         related_name="fichas_tecnicas",
         verbose_name="turno asociado",
         help_text="Turno en el que se generó esta ficha"
