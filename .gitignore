@@ -24,6 +24,15 @@ Thumbs.db
 
 # Temp and test files
 test_output.txt
+test_horarios.py
+test_view.py
+_check_etapas.py
 
 # SDD artifacts
 .atl/
+openspec/
+
+# Documentation (only README kept)
+docs/
+doc_disenio/
+tp_documentacion/
