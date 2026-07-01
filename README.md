@@ -571,8 +571,6 @@ python manage.py test gestion.tests.test_concurrencia
 
 ## 🌐 Deploy a Producción (PythonAnywhere)
 
-La documentación completa de deploy se encuentra en [`docs/DEPLOY_PRODUCCION.md`](docs/DEPLOY_PRODUCCION.md).
-
 ### Resumen del flujo de actualización:
 
 ```bash
@@ -736,16 +734,6 @@ erDiagram
         decimal cantidad_usada
     }
 ```
-
----
-
-## 📚 Documentación Adicional
-
-| Documento | Contenido |
-|-----------|-----------|
-| [`docs/DEPLOY_PRODUCCION.md`](docs/DEPLOY_PRODUCCION.md) | Guía paso a paso de deploy en PythonAnywhere (318 líneas) |
-| [`docs/der_report.md`](docs/der_report.md) | Reporte DER completo con diagrama Mermaid, 5 reglas de negocio y políticas de integridad referencial actualizadas |
-| [`docs/sistema_horarios.md`](docs/sistema_horarios.md) | Arquitectura del sistema de horarios y explicación del algoritmo bitmask |
 
 ---
 
