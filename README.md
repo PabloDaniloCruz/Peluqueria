@@ -645,8 +645,8 @@ erDiagram
         date fecha_contratacion
     }
     HabilidadProfesional {
-        FK profesional
-        FK servicio
+        int profesional
+        int servicio
     }
     Servicio {
         string nombre UK
@@ -702,35 +702,35 @@ erDiagram
         datetime fecha_creacion
     }
     DetalleTurno {
-        FK turno
-        FK servicio
-        FK profesional
+        int turno
+        int servicio
+        int profesional
         decimal precio_real
         datetime hora_inicio
         datetime hora_fin
     }
     DetalleEtapa {
-        FK detalle
-        FK etapa_servicio
-        FK estacion
+        int detalle
+        int etapa_servicio
+        int estacion
         datetime hora_inicio
         datetime hora_fin
     }
     ComisionDetalle {
-        FK venta
-        FK detalle_turno
-        FK profesional
+        int venta
+        int detalle_turno
+        int profesional
         decimal monto
     }
     DetalleVentaProducto {
-        FK venta
-        FK producto
+        int venta
+        int producto
         int cantidad
         decimal precio_unitario
     }
     ConsumoInsumo {
-        FK turno
-        FK producto
+        int turno
+        int producto
         decimal cantidad_usada
     }
 ```
